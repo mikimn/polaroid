@@ -6,6 +6,9 @@
 #include <libuvc/libuvc.h>
 #include <libuvc/libuvc_internal.h>
 
+#include "blit.h"
+#include "stream_mode.h"
+
 #include <algorithm>
 #include <cmath>
 #include <cstdlib>
@@ -61,35 +64,22 @@ uvc_error_t getStreamCtrl(uvc_device_handle_t *devh, uvc_stream_ctrl_t *ctrl,
         }
     }
 
-    // 3. Find best matching supported frame descriptor
+    // 3. Try the sizes the camera supports, closest to the request first
     uvc_streaming_interface_t *stream_if = nullptr;
     uvc_format_desc_t *format = nullptr;
     uvc_frame_desc_t *frame = nullptr;
-
-    struct FrameCandidate {
-        uvc_frame_desc_t *frame;
-        int diff;
-    };
-
-    std::vector<FrameCandidate> candidates;
-
+    std::vector<polaroid::FrameSize> supported;
     DL_FOREACH(devh->info->stream_ifs, stream_if) {
         DL_FOREACH(stream_if->format_descs, format) {
             DL_FOREACH(format->frame_descs, frame) {
-                int diff = std::abs(static_cast<int>(frame->wWidth) - width) +
-                           std::abs(static_cast<int>(frame->wHeight) - height);
-                candidates.push_back({frame, diff});
+                supported.push_back({frame->wWidth, frame->wHeight});
             }
         }
     }
 
-    std::sort(candidates.begin(), candidates.end(), [](const FrameCandidate &a, const FrameCandidate &b) {
-        return a.diff < b.diff;
-    });
-
-    for (const auto &c : candidates) {
+    for (const auto &size : polaroid::orderBySimilarity(supported, width, height)) {
         for (auto fmt : formats) {
-            if (uvc_get_stream_ctrl_format_size(devh, ctrl, fmt, c.frame->wWidth, c.frame->wHeight, 0) == UVC_SUCCESS) {
+            if (uvc_get_stream_ctrl_format_size(devh, ctrl, fmt, size.width, size.height, 0) == UVC_SUCCESS) {
                 return UVC_SUCCESS;
             }
         }
@@ -132,20 +122,9 @@ void onFrame(uvc_frame_t *frame, void *user) {
         return;
     }
 
-    const auto *src = static_cast<const uint8_t *>(cam->rgb->data);
-    auto *dst = static_cast<uint8_t *>(buf.bits);
-    const uint32_t rows = std::min<uint32_t>(buf.height, cam->rgb->height);
-    const uint32_t cols = std::min<uint32_t>(buf.width, cam->rgb->width);
-    for (int y = 0; y < rows; y++) {
-        const uint8_t *s = src + y * cam->rgb->step;
-        uint8_t *d = dst + y * buf.stride * 4;
-        for (int x = 0; x < cols; x++, s += 3, d += 4) {
-            d[0] = s[0];
-            d[1] = s[1];
-            d[2] = s[2];
-            d[3] = 0xFF;
-        }
-    }
+    polaroid::blitRgbToRgbx(static_cast<const uint8_t *>(cam->rgb->data), cam->rgb->step,
+                            cam->rgb->width, cam->rgb->height, static_cast<uint8_t *>(buf.bits),
+                            static_cast<size_t>(buf.stride) * 4, buf.width, buf.height);
     ANativeWindow_unlockAndPost(cam->window);
 }
 
@@ -219,7 +198,7 @@ Java_com_mikimn_libpolaroid_UvcCamera_nativeStart(JNIEnv *env, jobject, jlong ha
         throwIOException(env, "Failed to start streaming", err);
     }
     // Packed (width << 32 | height) so Kotlin can size the preview to the real stream.
-    return (static_cast<jlong>(width) << 32) | static_cast<jlong>(height);
+    return static_cast<jlong>(polaroid::packSize(width, height));
 }
 
 JNIEXPORT void JNICALL

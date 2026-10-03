@@ -54,3 +54,18 @@ dependencies {
     androidTestImplementation 'androidx.test.ext:junit:1.1.3'
     androidTestImplementation 'androidx.test.espresso:espresso-core:3.4.0'
 }
+
+// Host-side (no device) GoogleTest suite for the pure C++ logic in src/main/cpp/core.
+tasks.register('nativeTest') {
+    group = 'verification'
+    description = 'Builds and runs the native C++ unit tests on the host machine.'
+    doLast {
+        def cmakeBin = "${android.sdkDirectory}/cmake/3.22.1/bin"
+        def source = file('src/main/cpp/tests')
+        def build = layout.buildDirectory.dir('native-tests').get().asFile
+        exec { commandLine "$cmakeBin/cmake", '-S', source, '-B', build, '-GNinja', "-DCMAKE_MAKE_PROGRAM=$cmakeBin/ninja" }
+        exec { commandLine "$cmakeBin/cmake", '--build', build }
+        exec { commandLine "$cmakeBin/ctest", '--test-dir', build, '--output-on-failure' }
+    }
+}
+tasks.named('check') { dependsOn 'nativeTest' }
