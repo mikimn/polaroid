@@ -11,7 +11,7 @@ class NativePolaroidLibrary {
     companion object {
         // Used to load the 'libpolaroid' library on application startup.
         init {
-            System.loadLibrary("libpolaroid")
+            System.loadLibrary("polaroid")
         }
     }
 }

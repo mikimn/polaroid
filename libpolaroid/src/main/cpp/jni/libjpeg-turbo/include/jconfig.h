@@ -1,2 +1,0 @@
-
-#define JPEG_LIB_VERSION 62

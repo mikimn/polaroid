@@ -7,7 +7,7 @@ plugins {
 
 android {
     namespace = "com.mikimn.polaroid"
-    compileSdk = 33
+    compileSdk = 35
 
     defaultConfig {
         applicationId = "com.mikimn.polaroid"

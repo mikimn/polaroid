@@ -5,12 +5,13 @@ plugins {
 
 android {
     namespace 'com.mikimn.libpolaroid'
-    compileSdk 33
-
+    compileSdk 35
+    ndkVersion '30.0.16248370'
 
     externalNativeBuild {
         cmake {
             path "src/main/cpp/CMakeLists.txt"
+            version "3.22.1"
         }
     }
 
@@ -23,18 +24,11 @@ android {
 
         externalNativeBuild {
             cmake {
-                // Optional: Add arguments, flags, or target specifications
-                arguments "-DANDROID_TOOLCHAIN=clang", "-DANDROID_STL=c++_shared", "-DUSE_PC_NAME=ON"
-                cFlags "-Wall"
-                cppFlags "-std=c++17"
-                abiFilters "arm64-v8a"  // TODO Remove later
-                targets "usb-1.0", "uvc", "libpolaroid"
+                arguments "-DANDROID_STL=c++_shared"
+                abiFilters "arm64-v8a", "x86_64"
             }
         }
 
-//        ndk {
-//            abiFilters "x86_64", "arm64-v8a"
-//        }
     }
 
     buildTypes {
@@ -43,11 +37,6 @@ android {
             proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
         }
     }
-//    externalNativeBuild {
-//        ndkBuild {
-//            path "src/main/cpp/jni/Android.mk"
-//        }
-//    }
     compileOptions {
         sourceCompatibility JavaVersion.VERSION_1_8
         targetCompatibility JavaVersion.VERSION_1_8
