@@ -36,7 +36,9 @@ fun rememberUvcCamera(device: UsbDevice): CameraState {
             return@LaunchedEffect
         }
         val camera = try {
-            withContext(Dispatchers.IO) { UvcCamera.open(connection.fileDescriptor) }
+            // NonCancellable: if the composition leaves while opening, the result must not be
+            // dropped, or the native camera would leak. It is closed in the finally block below.
+            withContext(Dispatchers.IO + NonCancellable) { UvcCamera.open(connection.fileDescriptor) }
         } catch (e: Exception) {
             connection.close()
             state = CameraState.Failed(e.message ?: "Could not open camera")

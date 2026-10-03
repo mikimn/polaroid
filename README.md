@@ -76,7 +76,8 @@ Notes:
 
 - `start` picks the closest mode the camera supports (preferring MJPEG, then YUYV), so use the returned `Size` to set your preview's aspect ratio.
 - Use a `TextureView` (or a surface you know is valid). A `SurfaceView` inside Jetpack Compose did not reliably receive its surface on some devices.
-- The example app's `ui/camera/` package shows the full flow as small composables.
+- `UvcCamera.start` negotiates the stream and can take up to a second: call it off the main thread. `stop`/`close` are synchronized with `start`, so calling `stop` from your surface-destroyed callback safely waits for a start in flight.
+- The example app's `ui/camera/` package shows the full flow as small composables, including releasing the camera when the app is backgrounded.
 
 ## Example Application
 
