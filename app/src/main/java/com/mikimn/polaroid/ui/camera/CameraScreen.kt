@@ -4,7 +4,6 @@ import android.hardware.usb.UsbDevice
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
@@ -47,12 +46,16 @@ private fun DevicePreview(device: UsbDevice) {
         CameraState.Opening -> Message("Opening camera…")
         is CameraState.Failed -> Message(state.message)
         is CameraState.Ready -> {
+            // The preview stays composed on error so the SurfaceView (and its lifecycle) is unaffected.
             var error by remember(state) { mutableStateOf<String?>(null) }
-            error?.let { Message(it) } ?: CameraPreview(
-                camera = state.camera,
-                modifier = Modifier.fillMaxWidth().aspectRatio(4f / 3f),
-                onError = { error = it.message ?: "Could not start preview" },
-            )
+            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                CameraPreview(
+                    camera = state.camera,
+                    modifier = Modifier.fillMaxWidth(),
+                    onError = { error = it.message ?: "Could not start preview" },
+                )
+                error?.let { Message(it) }
+            }
         }
     }
 }
