@@ -103,7 +103,9 @@ void onFrame(uvc_frame_t *frame, void *user) {
     auto *cam = static_cast<Camera *>(user);
     std::lock_guard<std::mutex> lock(cam->mutex);
     if (!cam->window) {
-        if (cam->failedFrames++ < 5) LOGE("Frame arrived but no window");
+        if (cam->failedFrames++ < 5) {
+            LOGE("Frame arrived but no window");
+        }
         return;
     }
 
@@ -116,20 +118,24 @@ void onFrame(uvc_frame_t *frame, void *user) {
     uvc_error_t err = uvc_any2rgb(frame, cam->rgb);
     if (err != UVC_SUCCESS) {
         // Corrupt frames are common right after a stream starts; log only a few.
-        if (cam->failedFrames++ < 5) LOGE("Dropping frame: %s", uvc_strerror(err));
+        if (cam->failedFrames++ < 5) {
+            LOGE("Dropping frame: %s", uvc_strerror(err));
+        }
         return;
     }
 
     ANativeWindow_Buffer buf;
     if (ANativeWindow_lock(cam->window, &buf, nullptr) != 0) {
-        if (cam->failedFrames++ < 5) LOGE("ANativeWindow_lock failed");
+        if (cam->failedFrames++ < 5) {
+            LOGE("ANativeWindow_lock failed");
+        }
         return;
     }
 
     const auto *src = static_cast<const uint8_t *>(cam->rgb->data);
     auto *dst = static_cast<uint8_t *>(buf.bits);
-    const int rows = std::min<int>(buf.height, cam->rgb->height);
-    const int cols = std::min<int>(buf.width, cam->rgb->width);
+    const uint32_t rows = std::min<uint32_t>(buf.height, cam->rgb->height);
+    const uint32_t cols = std::min<uint32_t>(buf.width, cam->rgb->width);
     for (int y = 0; y < rows; y++) {
         const uint8_t *s = src + y * cam->rgb->step;
         uint8_t *d = dst + y * buf.stride * 4;
@@ -141,11 +147,6 @@ void onFrame(uvc_frame_t *frame, void *user) {
         }
     }
     ANativeWindow_unlockAndPost(cam->window);
-    if (cam->frames++ % 30 == 0) {
-        LOGI("Frame #%ld posted: %ux%u src format %d, window buffer %dx%d stride %d fmt %d",
-             cam->frames - 1, frame->width, frame->height, frame->frame_format,
-             buf.width, buf.height, buf.stride, buf.format);
-    }
 }
 
 void releaseWindow(Camera *cam) {
@@ -199,8 +200,6 @@ Java_com_mikimn_libpolaroid_UvcCamera_nativeStart(JNIEnv *env, jobject, jlong ha
         height = frame_desc->wHeight;
     }
 
-    LOGI("Starting stream: %dx%d format index %d frame index %d interval %u", width, height,
-         ctrl.bFormatIndex, ctrl.bFrameIndex, ctrl.dwFrameInterval);
     ANativeWindow *window = ANativeWindow_fromSurface(env, surface);
     if (!window) {
         env->ThrowNew(env->FindClass("java/io/IOException"), "Surface is not valid");
@@ -218,8 +217,6 @@ Java_com_mikimn_libpolaroid_UvcCamera_nativeStart(JNIEnv *env, jobject, jlong ha
         releaseWindow(cam);
         LOGE("uvc_start_streaming failed: %s", uvc_strerror(err));
         throwIOException(env, "Failed to start streaming", err);
-    } else {
-        LOGI("Streaming started, waiting for frames");
     }
     // Packed (width << 32 | height) so Kotlin can size the preview to the real stream.
     return (static_cast<jlong>(width) << 32) | static_cast<jlong>(height);
@@ -228,7 +225,6 @@ Java_com_mikimn_libpolaroid_UvcCamera_nativeStart(JNIEnv *env, jobject, jlong ha
 JNIEXPORT void JNICALL
 Java_com_mikimn_libpolaroid_UvcCamera_nativeStop(JNIEnv *, jobject, jlong handle) {
     auto *cam = reinterpret_cast<Camera *>(handle);
-    LOGI("Stopping stream");
     uvc_stop_streaming(cam->devh);  // joins the callback thread; must not hold the mutex
     releaseWindow(cam);
 }
