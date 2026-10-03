@@ -19,11 +19,16 @@ Use the Gradle wrapper from the repo root (`local.properties` holds the SDK path
 ./gradlew :app:assembleDebug            # build the app (also builds native lib)
 ./gradlew :libpolaroid:assembleDebug    # build only the library + native code
 ./gradlew test                          # JVM unit tests (both modules)
+./gradlew :libpolaroid:nativeTest       # native C++ GoogleTest suite, built for the host
 ./gradlew :app:testDebugUnitTest --tests "com.mikimn.polaroid.ExampleUnitTest"   # single test
 ./gradlew connectedAndroidTest          # instrumented tests (needs device/emulator)
 ```
 
 No lint/format tooling is configured beyond Android defaults (`./gradlew lint`).
+
+## Native tests
+
+`./gradlew :libpolaroid:nativeTest` (also part of `check`) builds and runs `libpolaroid/src/main/cpp/tests`, a standalone host CMake project (SDK CMake 3.22.1 + Ninja; fetches GoogleTest 1.15.2 with FetchContent, so the first run needs network). It tests `src/main/cpp/core/`: `blit.*` (RGB→RGBX copy with strides) and `stream_mode.*` (closest-size ordering, size packing). `core/` must stay free of Android/libuvc/JNI includes; `uvc_camera.cpp` is the thin JNI/libuvc layer on top of it.
 
 ## Native build architecture (the non-obvious part)
 
