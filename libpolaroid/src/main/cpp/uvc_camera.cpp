@@ -162,7 +162,7 @@ void releaseWindow(Camera *cam) {
 extern "C" {
 
 JNIEXPORT jlong JNICALL
-Java_com_mikimn_libpolaroid_UvcCamera_nativeOpen(JNIEnv *env, jobject, jint fd) {
+Java_com_mikimn_libpolaroid_NativeUvc_open(JNIEnv *env, jobject, jint fd) {
     // Android forbids enumerating /dev/bus/usb; we only wrap the fd from UsbManager.
     libusb_set_option(nullptr, LIBUSB_OPTION_NO_DEVICE_DISCOVERY);
 
@@ -179,7 +179,7 @@ Java_com_mikimn_libpolaroid_UvcCamera_nativeOpen(JNIEnv *env, jobject, jint fd) 
 }
 
 JNIEXPORT jlong JNICALL
-Java_com_mikimn_libpolaroid_UvcCamera_nativeStart(JNIEnv *env, jobject, jlong handle,
+Java_com_mikimn_libpolaroid_NativeUvc_start(JNIEnv *env, jobject, jlong handle,
                                                   jobject surface, jint width, jint height,
                                                   jint fps) {
     auto *cam = reinterpret_cast<Camera *>(handle);
@@ -223,14 +223,14 @@ Java_com_mikimn_libpolaroid_UvcCamera_nativeStart(JNIEnv *env, jobject, jlong ha
 }
 
 JNIEXPORT void JNICALL
-Java_com_mikimn_libpolaroid_UvcCamera_nativeStop(JNIEnv *, jobject, jlong handle) {
+Java_com_mikimn_libpolaroid_NativeUvc_stop(JNIEnv *, jobject, jlong handle) {
     auto *cam = reinterpret_cast<Camera *>(handle);
     uvc_stop_streaming(cam->devh);  // joins the callback thread; must not hold the mutex
     releaseWindow(cam);
 }
 
 JNIEXPORT void JNICALL
-Java_com_mikimn_libpolaroid_UvcCamera_nativeClose(JNIEnv *, jobject, jlong handle) {
+Java_com_mikimn_libpolaroid_NativeUvc_close(JNIEnv *, jobject, jlong handle) {
     auto *cam = reinterpret_cast<Camera *>(handle);
     uvc_stop_streaming(cam->devh);
     releaseWindow(cam);
