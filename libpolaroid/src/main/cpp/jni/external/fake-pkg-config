@@ -1,0 +1,42 @@
+#!/bin/sh
+#
+# this is a fake pkg-config since ffmpeg requires pkg-config if you want to
+# include external libraries like libfreetype or libass.  The Android NDK does
+# not provide any kind of pkg-config.
+
+printf '%s\n' "$*" >&2
+case $1 in
+    --exists)
+        if [ $2 = "libusb-1.0" ]; then
+            exit 0
+        else
+            exit 1
+        fi
+        ;;
+    --cflags)
+        printf $(pwd) >&2
+        echo "-I$(pwd)/src/main/cpp/jni/libusb/libusb"
+        ;;
+    --cflags-only-other)
+        printf $(pwd) >&2
+        echo ""
+        ;;
+    --cflags-only-I)
+        echo "-I$(pwd)/src/main/cpp/jni/libusb/libusb"
+        ;;
+    --libs)
+        echo "-L$(pwd)/build/intermediates/ndkBuild/debug/obj/local -lusb-1.0"
+        ;;
+    --libs-only-l)
+        echo "-lusb-1.0"
+        ;;
+    --libs-only-L)
+        echo "-L$(pwd)/build/intermediates/ndkBuild/debug/obj/local"
+        ;;
+    --version)
+        echo "1.0"
+        ;;
+    *)
+        echo "pkg-config for Android NDK"
+        ;;
+esac
