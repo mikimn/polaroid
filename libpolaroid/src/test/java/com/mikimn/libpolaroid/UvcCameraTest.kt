@@ -11,7 +11,8 @@ class UvcCameraTest {
 
     private class FakeNative(
         private val handle: Long = 42L,
-        private val packedSize: Long = (1280L shl 32) or 720L,
+        private val negotiated: IntArray = intArrayOf(0, 1280, 720, 30),
+        private val modes: IntArray = intArrayOf(0, 1280, 720, 30, 1, 640, 480, 15),
     ) : UvcNative {
         val calls = mutableListOf<String>()
         var failStart = false
@@ -23,10 +24,15 @@ class UvcCameraTest {
             return handle
         }
 
-        override fun start(handle: Long, surface: Surface, width: Int, height: Int, fps: Int): Long {
-            calls += "start($handle,${width}x$height@$fps)"
+        override fun listModes(handle: Long): IntArray {
+            calls += "listModes($handle)"
+            return modes
+        }
+
+        override fun start(handle: Long, surface: Surface, width: Int, height: Int, fps: Int, preferredFormat: Int): IntArray {
+            calls += "start($handle,${width}x$height@$fps,format=$preferredFormat)"
             if (failStart) throw IOException("unsupported")
-            return packedSize
+            return negotiated
         }
 
         override fun stop(handle: Long) {
@@ -54,18 +60,78 @@ class UvcCameraTest {
     }
 
     @Test
-    fun `start returns the negotiated size and forwards the request`() {
+    fun `start returns the negotiated mode and forwards the request`() {
         val fake = FakeNative()
-        val size = UvcCamera.open(fake, 7).start(surface, 640, 480, 30)
-        assertEquals(StreamSize(1280, 720), size)
-        assertEquals("start(42,640x480@30)", fake.calls.last())
+        val mode = UvcCamera.open(fake, 7).start(surface, 640, 480, 30)
+        assertEquals(StreamMode(StreamFormat.MJPEG, 1280, 720, 30), mode)
+        assertEquals("start(42,640x480@30,format=-1)", fake.calls.last())
+    }
+
+    @Test
+    fun `start forwards the preferred format`() {
+        val fake = FakeNative()
+        UvcCamera.open(fake, 7).start(surface, 640, 480, 30, StreamFormat.YUYV)
+        assertEquals("start(42,640x480@30,format=1)", fake.calls.last())
+    }
+
+    @Test
+    fun `start with a mode requests its size, rate and format`() {
+        val fake = FakeNative()
+        UvcCamera.open(fake, 7).start(surface, StreamMode(StreamFormat.YUYV, 640, 480, 15))
+        assertEquals("start(42,640x480@15,format=1)", fake.calls.last())
+    }
+
+    @Test
+    fun `supportedModes decodes the native list`() {
+        val modes = UvcCamera.open(FakeNative(), 7).supportedModes()
+        assertEquals(
+            listOf(StreamMode(StreamFormat.MJPEG, 1280, 720, 30), StreamMode(StreamFormat.YUYV, 640, 480, 15)),
+            modes,
+        )
+    }
+
+    @Test
+    fun `supportedModes omits formats that cannot be rendered`() {
+        val fake = FakeNative(modes = intArrayOf(0, 1280, 720, 30, 2, 1280, 720, 30, 1, 640, 480, 15))
+        val modes = UvcCamera.open(fake, 7).supportedModes()
+        assertEquals(listOf(StreamFormat.MJPEG, StreamFormat.YUYV), modes.map { it.format })
+    }
+
+    @Test
+    fun `start rejects a preferred format that cannot be rendered`() {
+        val camera = UvcCamera.open(FakeNative(), 7)
+        assertThrows(IllegalArgumentException::class.java) { camera.start(surface, 640, 480, 30, StreamFormat.OTHER) }
+        assertThrows(IllegalArgumentException::class.java) {
+            camera.start(surface, StreamMode(StreamFormat.OTHER, 640, 480, 30))
+        }
+    }
+
+    @Test
+    fun `format codes match the native layer`() {
+        // Keep in sync with PixelFormatCode in cpp/core/stream_mode.h (pinned there by stream_mode_test.cpp).
+        assertEquals(0, StreamFormat.MJPEG.code)
+        assertEquals(1, StreamFormat.YUYV.code)
+        assertEquals(2, StreamFormat.OTHER.code)
+    }
+
+    @Test
+    fun `supportedModes after close throws`() {
+        val camera = UvcCamera.open(FakeNative(), 7)
+        camera.close()
+        assertThrows(IllegalStateException::class.java) { camera.supportedModes() }
+    }
+
+    @Test
+    fun `unknown format codes decode as OTHER`() {
+        assertEquals(StreamFormat.OTHER, StreamFormat.fromCode(2))
+        assertEquals(StreamFormat.OTHER, StreamFormat.fromCode(99))
     }
 
     @Test
     fun `start uses default mode when none is given`() {
         val fake = FakeNative()
         UvcCamera.open(fake, 7).start(surface)
-        assertEquals("start(42,640x480@30)", fake.calls.last())
+        assertEquals("start(42,640x480@30,format=-1)", fake.calls.last())
     }
 
     @Test
@@ -99,11 +165,5 @@ class UvcCameraTest {
         camera.close()
         camera.stop()
         assertEquals(listOf("open(7)", "stop(42)", "close(42)"), fake.calls)
-    }
-
-    @Test
-    fun `unpack decodes width and height`() {
-        assertEquals(StreamSize(1920, 1080), StreamSize.unpack((1920L shl 32) or 1080L))
-        assertEquals(StreamSize(0, 0), StreamSize.unpack(0))
     }
 }

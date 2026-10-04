@@ -3,32 +3,34 @@ package com.mikimn.polaroid.ui.camera
 import android.graphics.SurfaceTexture
 import android.view.Surface
 import android.view.TextureView
+import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
-import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.runtime.rememberUpdatedState
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.viewinterop.AndroidView
+import com.mikimn.libpolaroid.StreamMode
 import com.mikimn.libpolaroid.UvcCamera
 import java.util.concurrent.Executors
 
 /**
- * Live preview of [camera], streaming exactly while the texture exists, sized to the stream's aspect ratio.
+ * Live preview of [camera] in [requestedMode] (the camera's closest default when null), streaming
+ * exactly while the texture exists and sized to the stream's aspect ratio.
  *
- * A [TextureView] is used instead of a SurfaceView: on some devices a SurfaceView created
- * inside Compose never received its surface (blank preview) until the app was backgrounded
- * and resumed, whereas a TextureView is part of the normal view hierarchy and always draws.
- * Streaming starts (on a background thread) and stops (synchronously) in the listener callbacks, because
- * the surface must not be used after `onSurfaceTextureDestroyed` returns.
+ * A [TextureView] is used instead of a SurfaceView: on some devices a SurfaceView created inside
+ * Compose never received its surface (blank preview) until the app was backgrounded and resumed,
+ * whereas a TextureView is part of the normal view hierarchy and always draws. Changing
+ * [requestedMode] restarts the stream on the same view (see [PreviewController]).
  */
 @Composable
 fun CameraPreview(
     camera: UvcCamera,
     modifier: Modifier = Modifier,
+    requestedMode: StreamMode? = null,
     onError: (Exception) -> Unit = {},
 ) {
     val currentOnError by rememberUpdatedState(onError)
@@ -39,50 +41,90 @@ fun CameraPreview(
         AndroidView(
             modifier = modifier.aspectRatio(aspectRatio),
             factory = { context ->
-                TextureView(context).apply {
-                    val view = this
-                    surfaceTextureListener = object : TextureView.SurfaceTextureListener {
-                        private var surface: Surface? = null
-
-                        // Negotiating the stream takes up to a second, so `start` runs off the main thread.
-                        private val starter = Executors.newSingleThreadExecutor()
-
-                        @Volatile
-                        private var destroyed = false
-
-                        override fun onSurfaceTextureAvailable(texture: SurfaceTexture, width: Int, height: Int) {
-                            val s = Surface(texture).also { surface = it }
-                            starter.execute {
-                                if (destroyed) return@execute
-                                try {
-                                    val size = camera.start(s)
-                                    // Compose state and the error callback belong on the main thread.
-                                    view.post { aspectRatio = size.width.toFloat() / size.height }
-                                } catch (e: Exception) {
-                                    view.post { currentOnError(e) }
-                                }
-                            }
-                        }
-
-                        override fun onSurfaceTextureSizeChanged(texture: SurfaceTexture, width: Int, height: Int) = Unit
-
-                        override fun onSurfaceTextureDestroyed(texture: SurfaceTexture): Boolean {
-                            // Stop on the same single-thread executor: it runs after a start that is queued
-                            // or in flight, so a start can never begin on the released surface, and the
-                            // surface is not used after this method returns.
-                            destroyed = true
-                            starter.submit { camera.stop() }.get()
-                            starter.shutdown()
-                            surface?.release()
-                            surface = null
-                            return true
-                        }
-
-                        override fun onSurfaceTextureUpdated(texture: SurfaceTexture) = Unit
-                    }
+                TextureView(context).also { view ->
+                    val controller = PreviewController(
+                        camera = camera,
+                        post = view::post,
+                        onStarted = { mode -> aspectRatio = mode.width.toFloat() / mode.height },
+                        onError = { currentOnError(it) },
+                    )
+                    view.tag = controller
+                    view.surfaceTextureListener = controller
                 }
             },
-            onRelease = { camera.stop() },
+            update = { view -> (view.tag as PreviewController).setMode(requestedMode) },
+            onRelease = { view -> (view.tag as PreviewController).release() },
         )
+    }
+}
+
+/**
+ * Owns the stream lifecycle of one [TextureView].
+ *
+ * All camera calls that can block (negotiating a stream takes up to a second) run on one
+ * single-thread executor, so starts, restarts and stops are strictly ordered with no reliance on
+ * when Compose adds or removes views: a mode change queues "stop, then start" on that executor, and
+ * destroying the texture queues a final stop and waits for it, so the surface is never used after
+ * [onSurfaceTextureDestroyed] returns. State (`surface`, `mode`, `executor`) is only touched from
+ * the main thread; `generation` lets queued starts that were superseded or whose surface is gone
+ * skip themselves.
+ */
+private class PreviewController(
+    private val camera: UvcCamera,
+    private val post: (Runnable) -> Boolean,
+    private val onStarted: (StreamMode) -> Unit,
+    private val onError: (Exception) -> Unit,
+) : TextureView.SurfaceTextureListener {
+    private var surface: Surface? = null
+    private var mode: StreamMode? = null
+    private var executor = Executors.newSingleThreadExecutor()
+
+    @Volatile
+    private var generation = 0
+
+    /** Switches to [newMode] (null = the camera's default), restarting the stream if it is running. */
+    fun setMode(newMode: StreamMode?) {
+        if (newMode == mode) return
+        mode = newMode
+        if (surface != null) startStream()
+    }
+
+    private fun startStream() {
+        val target = surface ?: return
+        val requested = mode
+        val mine = ++generation
+        executor.execute {
+            if (mine != generation) return@execute
+            try {
+                camera.stop()
+                val started = requested?.let { camera.start(target, it) } ?: camera.start(target)
+                post(Runnable { onStarted(started) })
+            } catch (e: Exception) {
+                post(Runnable { onError(e) })
+            }
+        }
+    }
+
+    override fun onSurfaceTextureAvailable(texture: SurfaceTexture, width: Int, height: Int) {
+        surface = Surface(texture)
+        if (executor.isShutdown) executor = Executors.newSingleThreadExecutor()
+        startStream()
+    }
+
+    override fun onSurfaceTextureSizeChanged(texture: SurfaceTexture, width: Int, height: Int) = Unit
+
+    override fun onSurfaceTextureDestroyed(texture: SurfaceTexture): Boolean {
+        generation++ // skip any start that has not begun
+        executor.submit { camera.stop() }.get() // runs after a start that is in flight
+        executor.shutdown()
+        surface?.release()
+        surface = null
+        return true
+    }
+
+    override fun onSurfaceTextureUpdated(texture: SurfaceTexture) = Unit
+
+    fun release() {
+        camera.stop()
     }
 }

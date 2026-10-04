@@ -10,6 +10,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.platform.LocalContext
+import com.mikimn.libpolaroid.StreamMode
 import com.mikimn.libpolaroid.UvcCamera
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.NonCancellable
@@ -17,12 +18,12 @@ import kotlinx.coroutines.withContext
 
 sealed interface CameraState {
     object Opening : CameraState
-    class Ready(val camera: UvcCamera) : CameraState
+    class Ready(val camera: UvcCamera, val modes: List<StreamMode>) : CameraState
     class Failed(val message: String) : CameraState
 }
 
 private sealed interface Opened {
-    class Success(val connection: UsbDeviceConnection, val camera: UvcCamera) : Opened
+    class Success(val connection: UsbDeviceConnection, val camera: UvcCamera, val modes: List<StreamMode>) : Opened
     class Failure(val message: String) : Opened
 }
 
@@ -42,7 +43,9 @@ fun rememberUvcCamera(device: UsbDevice): CameraState {
             val connection = manager.openDevice(device)
                 ?: return@withContext Opened.Failure("Could not open USB device")
             try {
-                Opened.Success(connection, UvcCamera.open(connection.fileDescriptor))
+                val camera = UvcCamera.open(connection.fileDescriptor)
+                // Listing modes reads the camera's descriptors; do it here, off the main thread.
+                Opened.Success(connection, camera, camera.supportedModes())
             } catch (e: Exception) {
                 connection.close()
                 Opened.Failure(e.message ?: "Could not open camera")
@@ -53,7 +56,7 @@ fun rememberUvcCamera(device: UsbDevice): CameraState {
             return@LaunchedEffect
         }
         opened as Opened.Success
-        state = CameraState.Ready(opened.camera)
+        state = CameraState.Ready(opened.camera, opened.modes)
         try {
             kotlinx.coroutines.awaitCancellation()
         } finally {

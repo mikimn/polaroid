@@ -4,7 +4,7 @@
 
 using polaroid::FrameSize;
 using polaroid::orderBySimilarity;
-using polaroid::packSize;
+using polaroid::intervalToFps;
 
 TEST(OrderBySimilarity, ExactMatchComesFirst) {
     auto result = orderBySimilarity({{1920, 1080}, {640, 480}, {1280, 720}}, 640, 480);
@@ -35,10 +35,27 @@ TEST(OrderBySimilarity, EmptyInputGivesEmptyOutput) {
     EXPECT_TRUE(orderBySimilarity({}, 640, 480).empty());
 }
 
-TEST(PackSize, MatchesTheKotlinDecoding) {
-    EXPECT_EQ(packSize(1280, 720), (int64_t{1280} << 32) | 720);
-    EXPECT_EQ(packSize(0, 0), 0);
-    const int64_t packed = packSize(1920, 1080);
-    EXPECT_EQ(static_cast<int>(packed >> 32), 1920);
-    EXPECT_EQ(static_cast<int>(packed & 0xFFFFFFFF), 1080);
+TEST(IntervalToFps, CommonFrameRates) {
+    EXPECT_EQ(intervalToFps(333333), 30);
+    EXPECT_EQ(intervalToFps(666666), 15);
+    EXPECT_EQ(intervalToFps(400000), 25);
+    EXPECT_EQ(intervalToFps(166666), 60);
+}
+
+TEST(IntervalToFps, RoundsToNearest) {
+    EXPECT_EQ(intervalToFps(344827), 29);  // 29.0000...
+    EXPECT_EQ(intervalToFps(416666), 24);  // 24.0000...
+    EXPECT_EQ(intervalToFps(1000000), 10);
+}
+
+TEST(IntervalToFps, ZeroIsInvalid) {
+    EXPECT_EQ(intervalToFps(0), 0);
+}
+
+TEST(PixelFormatCode, MatchesKotlinStreamFormat) {
+    // Keep in sync with StreamFormat in UvcCamera.kt (pinned there by UvcCameraTest).
+    EXPECT_EQ(polaroid::kAnyFormat, -1);
+    EXPECT_EQ(polaroid::kMjpeg, 0);
+    EXPECT_EQ(polaroid::kYuyv, 1);
+    EXPECT_EQ(polaroid::kOtherFormat, 2);
 }
