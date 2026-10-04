@@ -4,10 +4,32 @@ import android.util.Log
 import android.view.Surface
 import java.io.IOException
 
-/** Width and height, in pixels, of a camera stream. */
-data class StreamSize(val width: Int, val height: Int) {
-    companion object {
-        internal fun unpack(packed: Long) = StreamSize((packed shr 32).toInt(), (packed and 0xFFFFFFFFL).toInt())
+/**
+ * Pixel format of a camera stream. The codes are shared with the native layer
+ * (`PixelFormatCode` in `core/stream_mode.h`); `UvcCameraTest` and `stream_mode_test.cpp` both pin
+ * them so the two sides cannot drift apart silently.
+ */
+enum class StreamFormat(internal val code: Int) {
+    MJPEG(0),
+    YUYV(1),
+
+    /** Any other format the camera advertises (NV12, H.264, ...); it cannot be rendered. */
+    OTHER(2);
+
+    /** True for the formats the library can convert for display (everything but [OTHER]). */
+    val isRenderable: Boolean get() = this != OTHER
+
+    internal companion object {
+        fun fromCode(code: Int) = values().firstOrNull { it.code == code } ?: OTHER
+    }
+}
+
+/** A stream mode: pixel format, size in pixels and frame rate. */
+data class StreamMode(val format: StreamFormat, val width: Int, val height: Int, val fps: Int) {
+    internal companion object {
+        /** Reads one `{format, width, height, fps}` quadruple starting at [offset]. */
+        fun fromInts(ints: IntArray, offset: Int = 0) =
+            StreamMode(StreamFormat.fromCode(ints[offset]), ints[offset + 1], ints[offset + 2], ints[offset + 3])
     }
 }
 
@@ -19,15 +41,40 @@ data class StreamSize(val width: Int, val height: Int) {
 class UvcCamera internal constructor(private val native: UvcNative, private var handle: Long) : AutoCloseable {
 
     /**
-     * Streams frames to [surface] until [stop] or [close], returning the size actually negotiated
-     * (the closest the camera supports to the requested one). Throws [IOException] on failure.
+     * The renderable modes the camera advertises ([StreamFormat.MJPEG] and [StreamFormat.YUYV]; a size
+     * with several frame rates appears once per rate). Other formats are omitted because [start] cannot
+     * display them.
      */
     @Synchronized
-    fun start(surface: Surface, width: Int = 640, height: Int = 480, fps: Int = 30): StreamSize {
+    fun supportedModes(): List<StreamMode> {
         check(handle != 0L) { "Camera is closed" }
-        Log.i(TAG, "start(valid=${surface.isValid}, ${width}x$height@$fps)")
-        return StreamSize.unpack(native.start(handle, surface, width, height, fps))
+        val ints = native.listModes(handle)
+        return (0 until ints.size / 4).map { StreamMode.fromInts(ints, it * 4) }.filter { it.format.isRenderable }
     }
+
+    /**
+     * Streams frames to [surface] until [stop] or [close], returning the mode actually negotiated:
+     * the closest the camera supports to the requested size and rate, using [preferredFormat] first
+     * if given (default order: MJPEG, YUYV, anything else). Throws [IllegalArgumentException] for a
+     * non-renderable [preferredFormat] and [IOException] on failure.
+     */
+    @Synchronized
+    fun start(
+        surface: Surface,
+        width: Int = 640,
+        height: Int = 480,
+        fps: Int = 30,
+        preferredFormat: StreamFormat? = null,
+    ): StreamMode {
+        check(handle != 0L) { "Camera is closed" }
+        require(preferredFormat?.isRenderable != false) { "$preferredFormat streams cannot be displayed" }
+        Log.i(TAG, "start(valid=${surface.isValid}, ${width}x$height@$fps, $preferredFormat)")
+        return StreamMode.fromInts(native.start(handle, surface, width, height, fps, preferredFormat?.code ?: -1))
+    }
+
+    /** Streams the given [mode] (see [supportedModes]); returns the mode actually negotiated. */
+    fun start(surface: Surface, mode: StreamMode): StreamMode =
+        start(surface, mode.width, mode.height, mode.fps, mode.format)
 
     /** Stops streaming. Safe to call at any time, including before [start] or after [close]. */
     @Synchronized

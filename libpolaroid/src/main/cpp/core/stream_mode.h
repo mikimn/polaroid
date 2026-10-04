@@ -19,7 +19,13 @@ struct FrameSize {
  */
 std::vector<FrameSize> orderBySimilarity(const std::vector<FrameSize> &supported, int width, int height);
 
-/** Packs a size as `(width << 32) | height`, the value `NativeUvc.start` returns to Kotlin. */
-int64_t packSize(int width, int height);
+/**
+ * Frames per second for a UVC frame interval (100 ns units), rounded to the nearest integer.
+ * Returns 0 for an invalid (zero) interval.
+ */
+int intervalToFps(uint32_t interval100ns);
+
+/** Pixel format codes shared with Kotlin's `StreamFormat` (see `UvcNative.kt`). */
+enum PixelFormatCode : int { kAnyFormat = -1, kMjpeg = 0, kYuyv = 1, kOtherFormat = 2 };
 
 }  // namespace polaroid
