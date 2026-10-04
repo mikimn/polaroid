@@ -35,6 +35,10 @@ class UvcCameraTest {
             return negotiated
         }
 
+        override fun deviceInfo(handle: Long): IntArray = intArrayOf(0x046d, 0x0825, 0x0110)
+
+        override fun deviceStrings(handle: Long): Array<String?> = arrayOf("Acme", "Cam 1", null)
+
         override fun controlInfo(handle: Long): IntArray {
             calls += "controlInfo($handle)"
             return intArrayOf(1, 1 shl 9, 3, 1 shl 0) // zoom + brightness
@@ -140,6 +144,26 @@ class UvcCameraTest {
         assertEquals(camera.controls, camera.controls) // cached
         camera.close()
         assertThrows(IllegalStateException::class.java) { camera.controls }
+    }
+
+    @Test
+    fun `info combines the native ids and strings`() {
+        val info = UvcCamera.open(FakeNative(), 7).info
+        assertEquals(CameraInfo(0x046d, 0x0825, "1.10", "Acme", "Cam 1", null), info)
+    }
+
+    @Test
+    fun `uvc version is formatted from the bcd value`() {
+        assertEquals("1.00", CameraInfo.from(intArrayOf(1, 2, 0x0100), arrayOf(null, null, null)).uvcVersion)
+        assertEquals("1.50", CameraInfo.from(intArrayOf(1, 2, 0x0150), arrayOf(null, null, null)).uvcVersion)
+        assertEquals("1.10", CameraInfo.from(intArrayOf(1, 2, 0x0110), arrayOf(null, null, null)).uvcVersion)
+    }
+
+    @Test
+    fun `info after close throws`() {
+        val camera = UvcCamera.open(FakeNative(), 7)
+        camera.close()
+        assertThrows(IllegalStateException::class.java) { camera.info }
     }
 
     @Test

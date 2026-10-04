@@ -5,6 +5,7 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.gestures.detectTransformGestures
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.fillMaxSize
@@ -76,6 +77,7 @@ private fun CameraContent(state: UvcCameraState.Ready) {
     var error by remember(state) { mutableStateOf<String?>(null) }
     var requested by remember(state.camera) { mutableStateOf<StreamMode?>(null) }
     var showControls by rememberSaveable { mutableStateOf(false) }
+    var showInfo by rememberSaveable { mutableStateOf(false) }
     val scope = rememberCoroutineScope()
     val snackbar = remember { SnackbarHostState() }
     // Hoisted per camera: values are cached here, not re-queried per frame.
@@ -103,10 +105,14 @@ private fun CameraContent(state: UvcCameraState.Ready) {
             }
             ModePicker(modes = state.modes, selected = requested, onSelect = { requested = it; error = null })
             error?.let { Message(it) }
-            TextButton(onClick = { showControls = !showControls }) { Text(if (showControls) "Hide controls" else "Controls") }
+            Row {
+                TextButton(onClick = { showControls = !showControls }) { Text(if (showControls) "Hide controls" else "Controls") }
+                TextButton(onClick = { showInfo = true }) { Text("Camera info") }
+            }
             if (showControls) ControlsPanel(controls)
         }
         SnackbarHost(snackbar, Modifier.align(Alignment.BottomCenter))
+        if (showInfo) CameraInfoDialog(state.camera, onDismiss = { showInfo = false })
     }
 }
 

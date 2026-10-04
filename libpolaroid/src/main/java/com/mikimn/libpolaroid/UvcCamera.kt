@@ -34,6 +34,31 @@ data class StreamMode(val format: StreamFormat, val width: Int, val height: Int,
 }
 
 /**
+ * What the device reports about itself. [uvcVersion] is the UVC specification it complies with, e.g. "1.10";
+ * the strings are null when the device does not provide them.
+ */
+data class CameraInfo(
+    val vendorId: Int,
+    val productId: Int,
+    val uvcVersion: String,
+    val manufacturer: String?,
+    val product: String?,
+    val serialNumber: String?,
+) {
+    internal companion object {
+        /** Builds the info from the native `{vendorId, productId, bcdUVC}` and `{manufacturer, product, serial}`. */
+        fun from(ints: IntArray, strings: Array<String?>) = CameraInfo(
+            vendorId = ints[0],
+            productId = ints[1],
+            uvcVersion = "%d.%02x".format(ints[2] shr 8 and 0xFF, ints[2] and 0xFF),
+            manufacturer = strings.getOrNull(0),
+            product = strings.getOrNull(1),
+            serialNumber = strings.getOrNull(2),
+        )
+    }
+}
+
+/**
  * A UVC camera opened from a file descriptor obtained via
  * [android.hardware.usb.UsbDeviceConnection.getFileDescriptor]. The caller must keep that
  * connection open until [close] returns.
@@ -41,6 +66,13 @@ data class StreamMode(val format: StreamFormat, val width: Int, val height: Int,
 class UvcCamera internal constructor(private val native: UvcNative, private var handle: Long) : AutoCloseable {
 
     private var cachedControls: CameraControls? = null
+
+    /** Identity of the device (vendor/product ids, strings, UVC version); works without streaming. */
+    val info: CameraInfo
+        @Synchronized get() {
+            check(handle != 0L) { "Camera is closed" }
+            return CameraInfo.from(native.deviceInfo(handle), native.deviceStrings(handle))
+        }
 
     /**
      * The camera's controls (zoom, exposure, focus, ...), usable before or during streaming. Only

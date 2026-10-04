@@ -116,6 +116,7 @@ The API is deliberately small:
 | `UvcCamera.open(fd)` | Open a camera from the file descriptor of a `UsbDeviceConnection` |
 | `UvcCamera.supportedModes()` | List the camera's renderable modes (MJPEG and YUYV) as `StreamMode(format, width, height, fps)` |
 | `UvcCamera.start(surface, width, height, fps, preferredFormat)` or `start(surface, mode)` | Stream to a `Surface`; returns the `StreamMode` actually negotiated |
+| `UvcCamera.info` | `CameraInfo`: vendor/product ids, manufacturer/product/serial strings and UVC version (works without streaming) |
 | `UvcCamera.controls` | Camera controls (zoom, exposure, focus, brightness, ...): `supported`, `zoom`, `focus`, ..., `get(ControlId)`. Each `Control` has `range`, `value`, `set(v)` and `reset()` |
 | `UvcCamera.stop()` / `close()` | Stop streaming / release the camera |
 
@@ -149,7 +150,7 @@ Notes:
 
 ## Example Application
 
-The `:app` module is a Jetpack Compose app that shows a live preview of the first connected UVC camera. It depends on `:libpolaroid-compose` exactly like a third-party app would (it contains only screen-level UI, no USB or camera plumbing), so `app/src/main/java/com/mikimn/polaroid/ui/camera/CameraScreen.kt` doubles as an integration reference matching the example in [Jetpack Compose](#jetpack-compose). Besides the preview and the mode picker it has a **Controls** panel built from what the connected camera reports: sliders for zoom, exposure, focus, brightness, ... using the device's own ranges, switches for the auto modes (the matching manual slider is disabled while auto is on), a reset per control and "Reset all", and pinch-to-zoom on the preview when the camera has a zoom control.
+The `:app` module is a Jetpack Compose app that shows a live preview of the first connected UVC camera. It depends on `:libpolaroid-compose` exactly like a third-party app would (it contains only screen-level UI, no USB or camera plumbing), so `app/src/main/java/com/mikimn/polaroid/ui/camera/CameraScreen.kt` doubles as an integration reference matching the example in [Jetpack Compose](#jetpack-compose). Besides the preview and the mode picker it has a **Controls** panel built from what the connected camera reports: sliders for zoom, exposure, focus, brightness, ... using the device's own ranges, switches for the auto modes (the matching manual slider is disabled while auto is on), a reset per control and "Reset all", and pinch-to-zoom on the preview when the camera has a zoom control. **Camera info** opens a plain-text report (device identity, UVC version, every stream mode, and every control with min/max/step/default/current, supported or not) that you can copy or share and paste into a bug report; its layout is fixed so two devices' reports diff cleanly, and it works without streaming.
 
 ```bash
 git clone --recurse-submodules https://github.com/mikimn/polaroid.git
