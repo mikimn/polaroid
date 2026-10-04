@@ -40,6 +40,7 @@ fun CameraPreview(
             modifier = modifier.aspectRatio(aspectRatio),
             factory = { context ->
                 TextureView(context).apply {
+                    val view = this
                     surfaceTextureListener = object : TextureView.SurfaceTextureListener {
                         private var surface: Surface? = null
 
@@ -55,9 +56,10 @@ fun CameraPreview(
                                 if (destroyed) return@execute
                                 try {
                                     val size = camera.start(s)
-                                    aspectRatio = size.width.toFloat() / size.height
+                                    // Compose state and the error callback belong on the main thread.
+                                    view.post { aspectRatio = size.width.toFloat() / size.height }
                                 } catch (e: Exception) {
-                                    currentOnError(e)
+                                    view.post { currentOnError(e) }
                                 }
                             }
                         }
@@ -65,11 +67,12 @@ fun CameraPreview(
                         override fun onSurfaceTextureSizeChanged(texture: SurfaceTexture, width: Int, height: Int) = Unit
 
                         override fun onSurfaceTextureDestroyed(texture: SurfaceTexture): Boolean {
-                            // `stop` is synchronized with `start`, so it waits for a start in flight
-                            // and the surface is never used after this method returns.
+                            // Stop on the same single-thread executor: it runs after a start that is queued
+                            // or in flight, so a start can never begin on the released surface, and the
+                            // surface is not used after this method returns.
                             destroyed = true
+                            starter.submit { camera.stop() }.get()
                             starter.shutdown()
-                            camera.stop()
                             surface?.release()
                             surface = null
                             return true
