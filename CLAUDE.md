@@ -27,7 +27,7 @@ No lint/format tooling is configured beyond Android defaults (`./gradlew lint`).
 
 ## CI
 
-`.github/workflows/ci.yml` runs on pushes to `main` and on PRs: installs JDK 17, NDK `30.0.16248370` and CMake `3.22.1` (keep in sync with `libpolaroid/build.gradle`), runs `./gradlew test lint :app:assembleDebug`, and fails if any submodule under `third_party/` has local modifications. It also uploads `app-debug.apk` as artifact `polaroid-debug-<sha>` (14 days); a rolling `dev` pre-release was deliberately not added. `app/build.gradle.kts` reads `compose_version` from `rootProject.extra` (the old `by ext` delegate resolved to `null` and broke `lint`).
+`.github/workflows/ci.yml` runs on pushes to `main` and on PRs (read-only token, in-progress runs cancelled except on `main`): installs JDK 17, NDK `30.0.16248370` and CMake `3.22.1` (keep in sync with `libpolaroid/build.gradle`), runs `./gradlew test lint :app:assembleDebug`, and fails if any submodule under `third_party/` has local modifications. It also uploads `app-debug.apk` as artifact `polaroid-debug-<sha>` (14 days); a rolling `dev` pre-release was deliberately not added. `app/build.gradle.kts` reads `compose_version` from `rootProject.extra` (the old `by ext` delegate resolved to `null` and broke `lint`).
 
 ## Native build architecture (the non-obvious part)
 
