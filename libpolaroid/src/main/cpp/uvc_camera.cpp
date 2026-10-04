@@ -90,6 +90,21 @@ uvc_error_t getStreamCtrl(uvc_device_handle_t *devh, uvc_stream_ctrl_t *ctrl,
     return UVC_ERROR_INVALID_MODE;
 }
 
+// libuvc's uvc_get_ctrl/uvc_set_ctrl use an infinite timeout, which would let a camera that never answers block
+// stop()/close() (they share the Kotlin lock) forever. Do the same class/interface control transfer with a bound;
+// a timeout surfaces as ControlException.Reason.TIMEOUT.
+constexpr unsigned int kControlTimeoutMs = 1000;
+constexpr uint8_t kGetClassInterface = LIBUSB_ENDPOINT_IN | LIBUSB_REQUEST_TYPE_CLASS | LIBUSB_RECIPIENT_INTERFACE;
+constexpr uint8_t kSetClassInterface = LIBUSB_ENDPOINT_OUT | LIBUSB_REQUEST_TYPE_CLASS | LIBUSB_RECIPIENT_INTERFACE;
+
+int controlTransfer(uvc_device_handle_t *devh, uint8_t requestType, uint8_t request, int unit, int selector,
+                    uint8_t *data, int length) {
+    return libusb_control_transfer(devh->usb_devh, requestType, request,
+                                   static_cast<uint16_t>(selector << 8),
+                                   static_cast<uint16_t>(unit << 8 | devh->info->ctrl_if.bInterfaceNumber),
+                                   data, static_cast<uint16_t>(length), kControlTimeoutMs);
+}
+
 // Throws com.mikimn.libpolaroid.ControlException(message, libusb error code) for a failed control transfer.
 void throwControlException(JNIEnv *env, int libusbError) {
     jclass cls = env->FindClass("com/mikimn/libpolaroid/ControlException");
@@ -303,8 +318,8 @@ Java_com_mikimn_libpolaroid_NativeUvc_getControl(JNIEnv *env, jobject, jlong han
                                                  jint selector, jint request, jint length) {
     auto *cam = reinterpret_cast<Camera *>(handle);
     std::vector<uint8_t> buf(static_cast<size_t>(length));
-    const int ret = uvc_get_ctrl(cam->devh, static_cast<uint8_t>(unit), static_cast<uint8_t>(selector),
-                                 buf.data(), length, static_cast<enum uvc_req_code>(request));
+    const int ret = controlTransfer(cam->devh, kGetClassInterface, static_cast<uint8_t>(request), unit, selector,
+                                    buf.data(), length);
     if (ret < 0) {
         throwControlException(env, ret);
         return nullptr;
@@ -322,8 +337,7 @@ Java_com_mikimn_libpolaroid_NativeUvc_setControl(JNIEnv *env, jobject, jlong han
     const jsize length = env->GetArrayLength(data);
     std::vector<uint8_t> buf(static_cast<size_t>(length));
     env->GetByteArrayRegion(data, 0, length, reinterpret_cast<jbyte *>(buf.data()));
-    const int ret = uvc_set_ctrl(cam->devh, static_cast<uint8_t>(unit), static_cast<uint8_t>(selector),
-                                 buf.data(), length);
+    const int ret = controlTransfer(cam->devh, kSetClassInterface, UVC_SET_CUR, unit, selector, buf.data(), length);
     if (ret < 0) throwControlException(env, ret);
 }
 

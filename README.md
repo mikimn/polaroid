@@ -76,7 +76,9 @@ camera.controls.supported                        // Set<ControlId>
 camera.controls.autoExposureMode?.options        // e.g. {AutoExposureMode.MANUAL, AutoExposureMode.AUTO}
 ```
 
-Covered: auto-exposure mode, exposure time, focus (+ auto), iris, zoom, pan/tilt, brightness, contrast, saturation, sharpness, gamma, hue, gain, backlight compensation, power-line frequency and white balance temperature (+ auto). Values are the raw UVC values (see the `ControlId` docs for units). Device failures throw `ControlException` with a `reason` (`UNSUPPORTED_OR_INVALID`, `DISCONNECTED`, `TIMEOUT`). Not yet covered: observing values that change by themselves under an auto mode (read `value` again), and relative controls.
+**These calls are blocking USB transfers** (bounded by a one second timeout, reported as `ControlException.Reason.TIMEOUT`): use them from a background thread, not from the main thread or from composition. A write the device refuses, because the control is read-only or an auto mode currently owns it (for example exposure time while auto-exposure is on), fails with `UNSUPPORTED_OR_INVALID`, just like an unsupported control; the `GET_INFO` bits that would tell them apart are not read yet.
+
+Covered: auto-exposure mode, exposure time, focus (+ auto), iris, zoom, pan/tilt, brightness, contrast, saturation, sharpness, gamma, hue, gain, backlight compensation, power-line frequency and white balance temperature (+ auto). Values are the raw UVC values (see the `ControlId` docs for units). Device failures throw `ControlException` with a `reason` (`UNSUPPORTED_OR_INVALID`, `DISCONNECTED`, `TIMEOUT`). `EXPOSURE_TIME` is an unsigned 32-bit field exposed as `Int` (values from 2^31 would read back negative). Not yet covered: observing values that change by themselves under an auto mode (read `value` again), and relative controls.
 
 ### Use the API
 
