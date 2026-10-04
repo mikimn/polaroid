@@ -87,7 +87,7 @@ fun CameraScreen() {
 }
 ```
 
-`UvcCameraPreview(camera, modifier, requestedMode, onError)` streams while its `TextureView` exists and sizes itself to the stream's aspect ratio; pass a `StreamMode` from `UvcCameraState.Ready.modes` as `requestedMode` to switch modes. The module declares the `CAMERA` permission and the optional USB-host feature in its manifest, and its public API is explicit (`explicitApi()`). It builds against Compose BOM 2024.09 and needs `compileSdk` 34+.
+`UvcCameraPreview(camera, modifier, requestedMode, onError)` streams while its `TextureView` exists and sizes itself to the stream's aspect ratio; pass a `StreamMode` from `UvcCameraState.Ready.modes` as `requestedMode` to switch modes. The module declares the `CAMERA` permission and the optional USB-host feature in its manifest, so they **merge into your app's manifest** (apps that review their permissions will see `CAMERA`; Android requires it to open UVC devices), and its public API is explicit (`explicitApi()`). It builds against Compose BOM 2024.09 and needs `compileSdk` 34+.
 ### Camera controls
 
 `camera.controls` exposes what the connected device supports, discovered from the camera's own capability bitmaps, so an unsupported control is `null` rather than an error at call time. It works before and during streaming.

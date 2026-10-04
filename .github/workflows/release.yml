@@ -119,11 +119,15 @@ jobs:
             echo "::error::Only $set of 4 Maven Central secrets are set (MAVEN_CENTRAL_USERNAME, MAVEN_CENTRAL_PASSWORD, SIGNING_KEY, SIGNING_KEY_PASSWORD); refusing to publish." >&2
             exit 1
           fi
-          if curl -fsI "https://repo1.maven.org/maven2/io/github/mikimn/libpolaroid/$VERSION/libpolaroid-$VERSION.pom" > /dev/null; then
-            echo "libpolaroid $VERSION is already on Maven Central; skipping."
-            exit 0
-          fi
-          ./gradlew :libpolaroid:publishAndReleaseToMavenCentral :libpolaroid-compose:publishAndReleaseToMavenCentral --stacktrace
+          # Each module is probed and published on its own, so a rerun after a partial failure (say libpolaroid
+          # went out and libpolaroid-compose failed validation) still publishes whatever is missing.
+          for module in libpolaroid libpolaroid-compose; do
+            if curl -fsI "https://repo1.maven.org/maven2/io/github/mikimn/$module/$VERSION/$module-$VERSION.pom" > /dev/null; then
+              echo "$module $VERSION is already on Maven Central; skipping."
+            else
+              ./gradlew ":$module:publishAndReleaseToMavenCentral" --stacktrace
+            fi
+          done
 
       - name: Publish the GitHub Release
         env:
