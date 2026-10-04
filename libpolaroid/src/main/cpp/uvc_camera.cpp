@@ -43,12 +43,14 @@ void throwIOException(JNIEnv *env, const char *what, uvc_error_t err) {
 }
 
 uvc_error_t getStreamCtrl(uvc_device_handle_t *devh, uvc_stream_ctrl_t *ctrl,
-                          int width, int height, int fps) {
-    const enum uvc_frame_format formats[] = {
-        UVC_FRAME_FORMAT_MJPEG,
-        UVC_FRAME_FORMAT_YUYV,
-        UVC_FRAME_FORMAT_ANY,
-    };
+                          int width, int height, int fps, int preferredFormat) {
+    // The preferred format (if any) is tried first, then the default order MJPEG, YUYV, any.
+    std::vector<enum uvc_frame_format> formats;
+    if (preferredFormat == polaroid::kMjpeg) formats.push_back(UVC_FRAME_FORMAT_MJPEG);
+    if (preferredFormat == polaroid::kYuyv) formats.push_back(UVC_FRAME_FORMAT_YUYV);
+    for (auto fmt : {UVC_FRAME_FORMAT_MJPEG, UVC_FRAME_FORMAT_YUYV, UVC_FRAME_FORMAT_ANY}) {
+        if (std::find(formats.begin(), formats.end(), fmt) == formats.end()) formats.push_back(fmt);
+    }
 
     // 1. Try exact format/size/fps
     for (auto fmt : formats) {
@@ -86,6 +88,26 @@ uvc_error_t getStreamCtrl(uvc_device_handle_t *devh, uvc_stream_ctrl_t *ctrl,
     }
 
     return UVC_ERROR_INVALID_MODE;
+}
+
+int classifyFormat(const uvc_format_desc_t *format) {
+    if (format->bDescriptorSubtype == UVC_VS_FORMAT_MJPEG) return polaroid::kMjpeg;
+    if (format->bDescriptorSubtype == UVC_VS_FORMAT_UNCOMPRESSED &&
+        memcmp(format->guidFormat, "YUY2", 4) == 0) {
+        return polaroid::kYuyv;
+    }
+    return polaroid::kOtherFormat;
+}
+
+const uvc_format_desc_t *findFormat(uvc_device_handle_t *devh, uint8_t formatIndex) {
+    uvc_streaming_interface_t *stream_if = nullptr;
+    uvc_format_desc_t *format = nullptr;
+    DL_FOREACH(devh->info->stream_ifs, stream_if) {
+        DL_FOREACH(stream_if->format_descs, format) {
+            if (format->bFormatIndex == formatIndex) return format;
+        }
+    }
+    return nullptr;
 }
 
 // Converts the incoming frame (YUYV/MJPEG/...) to RGB and blits it to the window.
@@ -157,20 +179,55 @@ Java_com_mikimn_libpolaroid_NativeUvc_open(JNIEnv *env, jobject, jint fd) {
     return reinterpret_cast<jlong>(cam);
 }
 
-JNIEXPORT jlong JNICALL
+// Returns {format, width, height, fps} for every mode the camera advertises. A frame size with a
+// continuous interval range is reported at its default and its fastest rate.
+JNIEXPORT jintArray JNICALL
+Java_com_mikimn_libpolaroid_NativeUvc_listModes(JNIEnv *env, jobject, jlong handle) {
+    auto *cam = reinterpret_cast<Camera *>(handle);
+    std::vector<jint> modes;
+    auto add = [&](int format, const uvc_frame_desc_t *frame, uint32_t interval) {
+        const int fps = polaroid::intervalToFps(interval);
+        if (fps <= 0) return;
+        modes.insert(modes.end(), {format, frame->wWidth, frame->wHeight, fps});
+    };
+    uvc_streaming_interface_t *stream_if = nullptr;
+    uvc_format_desc_t *format = nullptr;
+    uvc_frame_desc_t *frame = nullptr;
+    DL_FOREACH(cam->devh->info->stream_ifs, stream_if) {
+        DL_FOREACH(stream_if->format_descs, format) {
+            const int code = classifyFormat(format);
+            DL_FOREACH(format->frame_descs, frame) {
+                if (frame->intervals != nullptr) {
+                    for (const uint32_t *i = frame->intervals; *i != 0; i++) add(code, frame, *i);
+                } else {
+                    add(code, frame, frame->dwDefaultFrameInterval);
+                    if (frame->dwMinFrameInterval != frame->dwDefaultFrameInterval) {
+                        add(code, frame, frame->dwMinFrameInterval);
+                    }
+                }
+            }
+        }
+    }
+    jintArray result = env->NewIntArray(static_cast<jsize>(modes.size()));
+    env->SetIntArrayRegion(result, 0, static_cast<jsize>(modes.size()), modes.data());
+    return result;
+}
+
+// Returns the negotiated mode as {format, width, height, fps}.
+JNIEXPORT jintArray JNICALL
 Java_com_mikimn_libpolaroid_NativeUvc_start(JNIEnv *env, jobject, jlong handle,
                                                   jobject surface, jint width, jint height,
-                                                  jint fps) {
+                                                  jint fps, jint preferredFormat) {
     auto *cam = reinterpret_cast<Camera *>(handle);
     uvc_stop_streaming(cam->devh);
     releaseWindow(cam);
 
     uvc_stream_ctrl_t ctrl;
-    uvc_error_t err = getStreamCtrl(cam->devh, &ctrl, width, height, fps);
+    uvc_error_t err = getStreamCtrl(cam->devh, &ctrl, width, height, fps, preferredFormat);
     if (err != UVC_SUCCESS) {
         LOGE("No usable stream mode for %dx%d@%d", width, height, fps);
         throwIOException(env, "Unsupported stream mode", err);
-        return 0;
+        return nullptr;
     }
 
     uvc_frame_desc_t *frame_desc = uvc_find_frame_desc(cam->devh, ctrl.bFormatIndex, ctrl.bFrameIndex);
@@ -182,7 +239,7 @@ Java_com_mikimn_libpolaroid_NativeUvc_start(JNIEnv *env, jobject, jlong handle,
     ANativeWindow *window = ANativeWindow_fromSurface(env, surface);
     if (!window) {
         env->ThrowNew(env->FindClass("java/io/IOException"), "Surface is not valid");
-        return 0;
+        return nullptr;
     }
     cam->failedFrames = 0;
     ANativeWindow_setBuffersGeometry(window, width, height, WINDOW_FORMAT_RGBX_8888);
@@ -196,9 +253,14 @@ Java_com_mikimn_libpolaroid_NativeUvc_start(JNIEnv *env, jobject, jlong handle,
         releaseWindow(cam);
         LOGE("uvc_start_streaming failed: %s", uvc_strerror(err));
         throwIOException(env, "Failed to start streaming", err);
+        return nullptr;
     }
-    // Packed (width << 32 | height) so Kotlin can size the preview to the real stream.
-    return static_cast<jlong>(polaroid::packSize(width, height));
+    const uvc_format_desc_t *negotiated = findFormat(cam->devh, ctrl.bFormatIndex);
+    const jint mode[4] = {negotiated ? classifyFormat(negotiated) : polaroid::kOtherFormat, width, height,
+                          polaroid::intervalToFps(ctrl.dwFrameInterval)};
+    jintArray result = env->NewIntArray(4);
+    env->SetIntArrayRegion(result, 0, 4, mode);
+    return result;
 }
 
 JNIEXPORT void JNICALL

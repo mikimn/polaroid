@@ -67,7 +67,8 @@ The API is deliberately small:
 | --- | --- |
 | `UsbManager.uvcDevices()` / `UsbDevice.isUvc` | Find attached UVC cameras |
 | `UvcCamera.open(fd)` | Open a camera from the file descriptor of a `UsbDeviceConnection` |
-| `UvcCamera.start(surface, width, height, fps)` | Stream to a `Surface`; returns the `StreamSize` actually negotiated |
+| `UvcCamera.supportedModes()` | List the camera's modes as `StreamMode(format, width, height, fps)` |
+| `UvcCamera.start(surface, width, height, fps, preferredFormat)` or `start(surface, mode)` | Stream to a `Surface`; returns the `StreamMode` actually negotiated |
 | `UvcCamera.stop()` / `close()` | Stop streaming / release the camera |
 
 ```kotlin
@@ -92,7 +93,7 @@ connection.close()
 
 Notes:
 
-- `start` picks the closest mode the camera supports (preferring MJPEG, then YUYV), so use the returned `StreamSize` to set your preview's aspect ratio. `StreamSize` is a plain `data class StreamSize(val width: Int, val height: Int)` rather than `android.util.Size`, which keeps the size logic unit-testable on the JVM.
+- `start` picks the closest mode the camera supports to the requested size and rate, trying `preferredFormat` first if you pass one (default order MJPEG, YUYV, anything else). Use the returned `StreamMode` (which carries the real size, frame rate and pixel format) to set your preview's aspect ratio. Sizes and modes are plain data classes (`StreamMode`, `PixelFormat`) rather than `android.util.Size`, which keeps the logic unit-testable on the JVM. The example app lists `supportedModes()` in a mode picker under the preview.
 - Use a `TextureView` (or a surface you know is valid). A `SurfaceView` inside Jetpack Compose did not reliably receive its surface on some devices.
 - `UvcCamera.start` negotiates the stream and can take up to a second: call it off the main thread. `stop`/`close` are synchronized with `start`, so calling `stop` from your surface-destroyed callback safely waits for a start in flight.
 - The example app's `ui/camera/` package shows the full flow as small composables, including releasing the camera when the app is backgrounded.

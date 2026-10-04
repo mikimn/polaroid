@@ -17,8 +17,9 @@ std::vector<FrameSize> orderBySimilarity(const std::vector<FrameSize> &supported
     return unique;
 }
 
-int64_t packSize(int width, int height) {
-    return (static_cast<int64_t>(width) << 32) | static_cast<int64_t>(static_cast<uint32_t>(height));
+int intervalToFps(uint32_t interval100ns) {
+    if (interval100ns == 0) return 0;
+    return static_cast<int>((10000000.0 / interval100ns) + 0.5);
 }
 
 }  // namespace polaroid

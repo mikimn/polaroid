@@ -17,6 +17,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
+import com.mikimn.libpolaroid.StreamMode
 
 /** Shows a preview of the first attached UVC camera, guiding the user through connecting it. */
 @Composable
@@ -50,12 +51,16 @@ private fun DevicePreview(device: UsbDevice) {
         is CameraState.Ready -> {
             // The preview stays composed on error so the SurfaceView (and its lifecycle) is unaffected.
             var error by remember(state) { mutableStateOf<String?>(null) }
+            val modes = remember(state.camera) { state.camera.supportedModes() }
+            var requested by remember(state.camera) { mutableStateOf<StreamMode?>(null) }
             Column(horizontalAlignment = Alignment.CenterHorizontally) {
                 CameraPreview(
                     camera = state.camera,
                     modifier = Modifier.fillMaxWidth(),
+                    requestedMode = requested,
                     onError = { error = it.message ?: "Could not start preview" },
                 )
+                ModePicker(modes = modes, selected = requested, onSelect = { requested = it; error = null })
                 error?.let { Message(it) }
             }
         }

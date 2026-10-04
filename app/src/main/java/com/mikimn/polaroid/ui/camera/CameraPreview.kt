@@ -13,11 +13,12 @@ import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.viewinterop.AndroidView
+import com.mikimn.libpolaroid.StreamMode
 import com.mikimn.libpolaroid.UvcCamera
 import java.util.concurrent.Executors
 
 /**
- * Live preview of [camera], streaming exactly while the texture exists, sized to the stream's aspect ratio.
+ * Live preview of [camera] in [requestedMode] (the camera's closest default when null), streaming exactly while the texture exists, sized to the stream's aspect ratio.
  *
  * A [TextureView] is used instead of a SurfaceView: on some devices a SurfaceView created
  * inside Compose never received its surface (blank preview) until the app was backgrounded
@@ -29,13 +30,14 @@ import java.util.concurrent.Executors
 fun CameraPreview(
     camera: UvcCamera,
     modifier: Modifier = Modifier,
+    requestedMode: StreamMode? = null,
     onError: (Exception) -> Unit = {},
 ) {
     val currentOnError by rememberUpdatedState(onError)
     // Until the stream size is known, assume 16:9; afterwards match the camera so the image is not stretched.
     var aspectRatio by remember(camera) { mutableStateOf(16f / 9f) }
 
-    key(camera) {
+    key(camera, requestedMode) {
         AndroidView(
             modifier = modifier.aspectRatio(aspectRatio),
             factory = { context ->
@@ -55,7 +57,7 @@ fun CameraPreview(
                             starter.execute {
                                 if (destroyed) return@execute
                                 try {
-                                    val size = camera.start(s)
+                                    val size = requestedMode?.let { camera.start(s, it) } ?: camera.start(s)
                                     // Compose state and the error callback belong on the main thread.
                                     view.post { aspectRatio = size.width.toFloat() / size.height }
                                 } catch (e: Exception) {

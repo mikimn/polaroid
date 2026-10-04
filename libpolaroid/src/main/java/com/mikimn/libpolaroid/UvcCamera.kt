@@ -4,10 +4,23 @@ import android.util.Log
 import android.view.Surface
 import java.io.IOException
 
-/** Width and height, in pixels, of a camera stream. */
-data class StreamSize(val width: Int, val height: Int) {
-    companion object {
-        internal fun unpack(packed: Long) = StreamSize((packed shr 32).toInt(), (packed and 0xFFFFFFFFL).toInt())
+/** Pixel format of a camera stream. */
+enum class PixelFormat(internal val code: Int) {
+    MJPEG(0),
+    YUYV(1),
+    OTHER(2);
+
+    internal companion object {
+        fun fromCode(code: Int) = values().firstOrNull { it.code == code } ?: OTHER
+    }
+}
+
+/** A stream mode: pixel format, size in pixels and frame rate. */
+data class StreamMode(val format: PixelFormat, val width: Int, val height: Int, val fps: Int) {
+    internal companion object {
+        /** Reads one `{format, width, height, fps}` quadruple starting at [offset]. */
+        fun fromInts(ints: IntArray, offset: Int = 0) =
+            StreamMode(PixelFormat.fromCode(ints[offset]), ints[offset + 1], ints[offset + 2], ints[offset + 3])
     }
 }
 
@@ -18,16 +31,35 @@ data class StreamSize(val width: Int, val height: Int) {
  */
 class UvcCamera internal constructor(private val native: UvcNative, private var handle: Long) : AutoCloseable {
 
+    /** Every mode the camera advertises (a size with several frame rates appears once per rate). */
+    @Synchronized
+    fun supportedModes(): List<StreamMode> {
+        check(handle != 0L) { "Camera is closed" }
+        val ints = native.listModes(handle)
+        return (0 until ints.size / 4).map { StreamMode.fromInts(ints, it * 4) }
+    }
+
     /**
-     * Streams frames to [surface] until [stop] or [close], returning the size actually negotiated
-     * (the closest the camera supports to the requested one). Throws [IOException] on failure.
+     * Streams frames to [surface] until [stop] or [close], returning the mode actually negotiated:
+     * the closest the camera supports to the requested size and rate, using [preferredFormat] first
+     * if given (default order: MJPEG, YUYV, anything else). Throws [IOException] on failure.
      */
     @Synchronized
-    fun start(surface: Surface, width: Int = 640, height: Int = 480, fps: Int = 30): StreamSize {
+    fun start(
+        surface: Surface,
+        width: Int = 640,
+        height: Int = 480,
+        fps: Int = 30,
+        preferredFormat: PixelFormat? = null,
+    ): StreamMode {
         check(handle != 0L) { "Camera is closed" }
-        Log.i(TAG, "start(valid=${surface.isValid}, ${width}x$height@$fps)")
-        return StreamSize.unpack(native.start(handle, surface, width, height, fps))
+        Log.i(TAG, "start(valid=${surface.isValid}, ${width}x$height@$fps, $preferredFormat)")
+        return StreamMode.fromInts(native.start(handle, surface, width, height, fps, preferredFormat?.code ?: -1))
     }
+
+    /** Streams the given [mode] (see [supportedModes]); returns the mode actually negotiated. */
+    fun start(surface: Surface, mode: StreamMode): StreamMode =
+        start(surface, mode.width, mode.height, mode.fps, mode.format)
 
     /** Stops streaming. Safe to call at any time, including before [start] or after [close]. */
     @Synchronized
