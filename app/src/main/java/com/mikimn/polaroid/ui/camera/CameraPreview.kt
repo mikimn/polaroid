@@ -45,13 +45,17 @@ fun CameraPreview(
                         private var surface: Surface? = null
 
                         // Negotiating the stream takes up to a second, so `start` runs off the main thread.
-                        private val starter = Executors.newSingleThreadExecutor()
+                        // Both are recreated per texture, so a view that is detached and re-attached
+                        // starts again instead of submitting to a shut-down executor.
+                        private var starter = Executors.newSingleThreadExecutor()
 
                         @Volatile
                         private var destroyed = false
 
                         override fun onSurfaceTextureAvailable(texture: SurfaceTexture, width: Int, height: Int) {
                             val s = Surface(texture).also { surface = it }
+                            destroyed = false
+                            if (starter.isShutdown) starter = Executors.newSingleThreadExecutor()
                             starter.execute {
                                 if (destroyed) return@execute
                                 try {
