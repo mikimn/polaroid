@@ -13,8 +13,14 @@ android {
         applicationId = "com.mikimn.polaroid"
         minSdk = 24
         targetSdk = 33
-        versionCode = 1
-        versionName = "1.0"
+        // Single source of truth for the version: VERSION_NAME in gradle.properties (MAJOR.MINOR.PATCH[-suffix]).
+        val version = providers.gradleProperty("VERSION_NAME").get()
+        require(Regex("""\d+\.\d+\.\d+(-[0-9A-Za-z.-]+)?""").matches(version)) {
+            "VERSION_NAME in gradle.properties must look like MAJOR.MINOR.PATCH[-suffix], but was '$version'"
+        }
+        val (major, minor, patch) = version.substringBefore('-').split('.').map { it.toInt() }
+        versionCode = major * 10000 + minor * 100 + patch
+        versionName = version
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         vectorDrawables {
@@ -22,8 +28,23 @@ android {
         }
     }
 
+    // Release signing is configured from the environment so no secrets live in the repository.
+    // Without RELEASE_KEYSTORE_FILE, the release build stays unsigned (CI then ships the debug APK).
+    val releaseKeystore = System.getenv("RELEASE_KEYSTORE_FILE")
+    if (releaseKeystore != null) {
+        signingConfigs {
+            create("release") {
+                storeFile = file(releaseKeystore)
+                storePassword = System.getenv("RELEASE_KEYSTORE_PASSWORD")
+                keyAlias = System.getenv("RELEASE_KEY_ALIAS")
+                keyPassword = System.getenv("RELEASE_KEY_PASSWORD")
+            }
+        }
+    }
+
     buildTypes {
         named("release") {
+            if (releaseKeystore != null) signingConfig = signingConfigs.getByName("release")
             isMinifyEnabled = false
             setProguardFiles(listOf(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro"))
         }

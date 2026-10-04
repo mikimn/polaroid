@@ -14,6 +14,7 @@ import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.viewinterop.AndroidView
 import com.mikimn.libpolaroid.UvcCamera
+import java.util.concurrent.Executors
 
 /**
  * Live preview of [camera], streaming exactly while the texture exists, sized to the stream's aspect ratio.
@@ -21,8 +22,8 @@ import com.mikimn.libpolaroid.UvcCamera
  * A [TextureView] is used instead of a SurfaceView: on some devices a SurfaceView created
  * inside Compose never received its surface (blank preview) until the app was backgrounded
  * and resumed, whereas a TextureView is part of the normal view hierarchy and always draws.
- * Streaming starts and stops directly in the listener callbacks, because the surface must
- * not be used after `onSurfaceTextureDestroyed` returns.
+ * Streaming starts (on a background thread) and stops (synchronously) in the listener callbacks, because
+ * the surface must not be used after `onSurfaceTextureDestroyed` returns.
  */
 @Composable
 fun CameraPreview(
@@ -39,23 +40,39 @@ fun CameraPreview(
             modifier = modifier.aspectRatio(aspectRatio),
             factory = { context ->
                 TextureView(context).apply {
+                    val view = this
                     surfaceTextureListener = object : TextureView.SurfaceTextureListener {
                         private var surface: Surface? = null
 
+                        // Negotiating the stream takes up to a second, so `start` runs off the main thread.
+                        private val starter = Executors.newSingleThreadExecutor()
+
+                        @Volatile
+                        private var destroyed = false
+
                         override fun onSurfaceTextureAvailable(texture: SurfaceTexture, width: Int, height: Int) {
                             val s = Surface(texture).also { surface = it }
-                            try {
-                                val size = camera.start(s)
-                                aspectRatio = size.width.toFloat() / size.height
-                            } catch (e: Exception) {
-                                currentOnError(e)
+                            starter.execute {
+                                if (destroyed) return@execute
+                                try {
+                                    val size = camera.start(s)
+                                    // Compose state and the error callback belong on the main thread.
+                                    view.post { aspectRatio = size.width.toFloat() / size.height }
+                                } catch (e: Exception) {
+                                    view.post { currentOnError(e) }
+                                }
                             }
                         }
 
                         override fun onSurfaceTextureSizeChanged(texture: SurfaceTexture, width: Int, height: Int) = Unit
 
                         override fun onSurfaceTextureDestroyed(texture: SurfaceTexture): Boolean {
-                            camera.stop()
+                            // Stop on the same single-thread executor: it runs after a start that is queued
+                            // or in flight, so a start can never begin on the released surface, and the
+                            // surface is not used after this method returns.
+                            destroyed = true
+                            starter.submit { camera.stop() }.get()
+                            starter.shutdown()
                             surface?.release()
                             surface = null
                             return true

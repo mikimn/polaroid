@@ -18,6 +18,20 @@ Polaroid is an Android library (`:libpolaroid`) that opens a USB Video Class cam
 
 ### Add the library
 
+**From Maven Central** (once the first release is published, see [Releasing](#releasing)):
+
+```kotlin
+// settings.gradle(.kts) / build.gradle(.kts)
+repositories { mavenCentral() }
+
+// app/build.gradle.kts
+dependencies { implementation("io.github.mikimn:libpolaroid:0.1.0") }
+```
+
+The AAR bundles the native libraries for `arm64-v8a` and `x86_64`.
+
+**From source** (e.g. to try unreleased changes): either run `./gradlew :libpolaroid:publishToMavenLocal` and add `mavenLocal()` to your repositories, or include the module directly:
+
 1. Add this repository as a git submodule (or copy it) and include the module in `settings.gradle`:
 
    ```bash
@@ -36,12 +50,14 @@ Polaroid is an Android library (`:libpolaroid`) that opens a USB Video Class cam
    implementation(project(":libpolaroid"))
    ```
 
-3. Declare USB host support and the camera permission in your `AndroidManifest.xml`. Android requires `CAMERA` to open UVC devices over USB:
+### Declare permissions
 
-   ```xml
-   <uses-feature android:name="android.hardware.usb.host" android:required="false" />
-   <uses-permission android:name="android.permission.CAMERA" />
-   ```
+Declare USB host support and the camera permission in your `AndroidManifest.xml`. Android requires `CAMERA` to open UVC devices over USB:
+
+```xml
+<uses-feature android:name="android.hardware.usb.host" android:required="false" />
+<uses-permission android:name="android.permission.CAMERA" />
+```
 
 ### Use the API
 
@@ -51,7 +67,7 @@ The API is deliberately small:
 | --- | --- |
 | `UsbManager.uvcDevices()` / `UsbDevice.isUvc` | Find attached UVC cameras |
 | `UvcCamera.open(fd)` | Open a camera from the file descriptor of a `UsbDeviceConnection` |
-| `UvcCamera.start(surface, width, height, fps)` | Stream to a `Surface`; returns the `Size` actually negotiated |
+| `UvcCamera.start(surface, width, height, fps)` | Stream to a `Surface`; returns the `StreamSize` actually negotiated |
 | `UvcCamera.stop()` / `close()` | Stop streaming / release the camera |
 
 ```kotlin
@@ -76,9 +92,10 @@ connection.close()
 
 Notes:
 
-- `start` picks the closest mode the camera supports (preferring MJPEG, then YUYV), so use the returned `Size` to set your preview's aspect ratio.
+- `start` picks the closest mode the camera supports (preferring MJPEG, then YUYV), so use the returned `StreamSize` to set your preview's aspect ratio. `StreamSize` is a plain `data class StreamSize(val width: Int, val height: Int)` rather than `android.util.Size`, which keeps the size logic unit-testable on the JVM.
 - Use a `TextureView` (or a surface you know is valid). A `SurfaceView` inside Jetpack Compose did not reliably receive its surface on some devices.
-- The example app's `ui/camera/` package shows the full flow as small composables.
+- `UvcCamera.start` negotiates the stream and can take up to a second: call it off the main thread. `stop`/`close` are synchronized with `start`, so calling `stop` from your surface-destroyed callback safely waits for a start in flight.
+- The example app's `ui/camera/` package shows the full flow as small composables, including releasing the camera when the app is backgrounded.
 
 ## Example Application
 
@@ -114,12 +131,34 @@ Every CI run (pull requests and pushes to `main`) uploads the example app as a `
 
 Contributions are welcome. Please open an issue to discuss larger changes first.
 
-- Build the example app (`./gradlew :app:assembleDebug`) and run the unit tests (`./gradlew test`) before opening a pull request. Test camera-related changes on a real device and camera if you can.
+- Build the example app (`./gradlew :app:assembleDebug`) and run the unit tests (`./gradlew test`) before opening a pull request. `:libpolaroid` also has instrumented tests that exercise the real JNI layer (no camera needed): `./gradlew :libpolaroid:connectedDebugAndroidTest` on a device or emulator. Test camera-related changes on a real device and camera if you can.
 - Third-party code lives in `libpolaroid/src/main/cpp/third_party/` as git submodules (`libusb`, `libuvc`, `libjpeg-turbo`). **Keep them pristine** so they can be updated; never edit files inside them. Build integration belongs in `libpolaroid/src/main/cpp/cmake/` and the top-level `CMakeLists.txt`.
-- CI (`.github/workflows/ci.yml`) runs `./gradlew test lint :app:assembleDebug` on pushes to `main` and on pull requests, and fails if a third-party submodule was modified. Run the same command locally before opening a PR.
+- Native C++ unit tests (GoogleTest, built for the host, no device needed): `./gradlew :libpolaroid:nativeTest`. Put new logic that does not need Android or libuvc in `libpolaroid/src/main/cpp/core/` so it can be tested. The first run downloads GoogleTest (pinned by hash), so `check` needs network access once.
+- CI (`.github/workflows/ci.yml`) runs `./gradlew test lint :libpolaroid:nativeTest :app:assembleDebug` on pushes to `main` and on pull requests, and fails if a third-party submodule was modified. Run the same command locally before opening a PR.
 - The native build is CMake only. Do not reintroduce ndk-build (`Android.mk`) files.
 - Keep components small and reusable, in line with the existing composables.
 - See `CLAUDE.md` for an overview of the architecture and build setup.
+
+### Releasing
+
+The version lives in one place, `VERSION_NAME` in `gradle.properties`; it is used for the library publication and for the example app's `versionName`/`versionCode` (`MAJOR*10000 + MINOR*100 + PATCH`).
+
+To cut a release:
+
+1. Set `VERSION_NAME=X.Y.Z` in `gradle.properties` and merge it to `main`.
+2. Tag and push: `git tag vX.Y.Z && git push origin vX.Y.Z`.
+
+The `Release` workflow (`.github/workflows/release.yml`) then checks that the tag matches `VERSION_NAME` and points at a commit on `main`, runs the tests and lint, builds the library AAR and the example APK, creates a **draft** GitHub Release with generated notes and the AAR and APK attached, publishes to Maven Central, and only then publishes the release (versions containing `-` are marked pre-release). Maven Central cannot be undone or re-run for a version, so it runs last, and every step is safe to re-run after a failure (an already-published version is skipped). If only some of the four Central secrets are set the run fails instead of silently skipping publication; with none set it skips with a warning. Release notes are generated from merged PRs, so there is no separate changelog file.
+
+Repository secrets used by the workflow (steps are skipped, not failed, when their secrets are missing):
+
+| Secret | Purpose |
+| --- | --- |
+| `ANDROID_KEYSTORE_BASE64`, `ANDROID_KEYSTORE_PASSWORD`, `ANDROID_KEY_ALIAS`, `ANDROID_KEY_PASSWORD` | Sign the release APK (base64 of the `.jks`). Without them the debug-signed APK is attached. |
+| `MAVEN_CENTRAL_USERNAME`, `MAVEN_CENTRAL_PASSWORD` | Central Portal user token |
+| `SIGNING_KEY`, `SIGNING_KEY_PASSWORD` | ASCII-armored GPG key used to sign the Maven artifacts |
+
+Publishing locally: `./gradlew :libpolaroid:publishToMavenLocal` to inspect the artifacts, or `./gradlew :libpolaroid:publishAndReleaseToMavenCentral` with the secrets above provided as `ORG_GRADLE_PROJECT_mavenCentralUsername`, `ORG_GRADLE_PROJECT_mavenCentralPassword`, `ORG_GRADLE_PROJECT_signingInMemoryKey` and `ORG_GRADLE_PROJECT_signingInMemoryKeyPassword`. The `io.github.mikimn` namespace must be verified on the [Central Portal](https://central.sonatype.com) first.
 
 ## How AI is Used in the Project
 

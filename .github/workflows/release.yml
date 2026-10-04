@@ -1,0 +1,130 @@
+name: Release
+
+# Push a tag like v0.1.0 (it must match VERSION_NAME in gradle.properties and point at a commit on
+# main) to build, publish and release.
+on:
+  push:
+    tags: ['v*']
+
+env:
+  TAG: ${{ github.ref_name }}
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    # contents: write is only used by the `gh release` steps, which receive the token explicitly.
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+          fetch-depth: 0
+          persist-credentials: false # keep the write token away from the Gradle build
+
+      - name: Check the tag
+        run: |
+          version=$(grep '^VERSION_NAME=' gradle.properties | cut -d= -f2)
+          if [ "v$version" != "$TAG" ]; then
+            echo "Tag $TAG does not match VERSION_NAME=$version in gradle.properties" >&2
+            exit 1
+          fi
+          git fetch --no-tags origin main
+          if ! git merge-base --is-ancestor "$GITHUB_SHA" origin/main; then
+            echo "Tag $TAG is not on a commit reachable from main" >&2
+            exit 1
+          fi
+          echo "VERSION=$version" >> "$GITHUB_ENV"
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+
+      - uses: gradle/actions/setup-gradle@v4
+
+      # Keep these in sync with ndkVersion / cmake version in libpolaroid/build.gradle
+      - name: Install NDK and CMake
+        run: |
+          yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --licenses > /dev/null || true
+          "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" "ndk;30.0.16248370" "cmake;3.22.1"
+
+      - name: Test
+        run: ./gradlew test lint --stacktrace
+
+      - name: Build the library AAR
+        run: ./gradlew :libpolaroid:assembleRelease --stacktrace
+
+      - name: Decode the release keystore
+        id: keystore
+        env:
+          KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+        run: |
+          if [ -n "$KEYSTORE_BASE64" ]; then
+            echo "$KEYSTORE_BASE64" | base64 --decode > "$RUNNER_TEMP/release.jks"
+            echo "RELEASE_KEYSTORE_FILE=$RUNNER_TEMP/release.jks" >> "$GITHUB_ENV"
+            echo "signed=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "::warning::No ANDROID_KEYSTORE_BASE64 secret: shipping the debug-signed APK."
+            echo "signed=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Build the example APK
+        env:
+          RELEASE_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          RELEASE_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          RELEASE_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+        run: |
+          if [ "${{ steps.keystore.outputs.signed }}" = "true" ]; then
+            ./gradlew :app:assembleRelease --stacktrace
+            cp app/build/outputs/apk/release/app-release.apk "polaroid-$VERSION.apk"
+          else
+            ./gradlew :app:assembleDebug --stacktrace
+            cp app/build/outputs/apk/debug/app-debug.apk "polaroid-$VERSION-debug.apk"
+          fi
+          cp libpolaroid/build/outputs/aar/libpolaroid-release.aar "libpolaroid-$VERSION.aar"
+
+      # The GitHub Release is created as a draft first and published last. Maven Central cannot be
+      # undone or re-run for a version, so everything that can fail cheaply happens before it, and
+      # every step below is safe to re-run.
+      - name: Create or update the draft GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          prerelease=""
+          case "$VERSION" in *-*) prerelease="--prerelease" ;; esac
+          gh release view "$TAG" > /dev/null 2>&1 \
+            || gh release create "$TAG" --draft --generate-notes --title "Polaroid $TAG" $prerelease
+          gh release upload "$TAG" --clobber libpolaroid-*.aar polaroid-*.apk
+
+      - name: Publish to Maven Central
+        env:
+          ORG_GRADLE_PROJECT_mavenCentralUsername: ${{ secrets.MAVEN_CENTRAL_USERNAME }}
+          ORG_GRADLE_PROJECT_mavenCentralPassword: ${{ secrets.MAVEN_CENTRAL_PASSWORD }}
+          ORG_GRADLE_PROJECT_signingInMemoryKey: ${{ secrets.SIGNING_KEY }}
+          ORG_GRADLE_PROJECT_signingInMemoryKeyPassword: ${{ secrets.SIGNING_KEY_PASSWORD }}
+        run: |
+          set=0
+          for v in "$ORG_GRADLE_PROJECT_mavenCentralUsername" "$ORG_GRADLE_PROJECT_mavenCentralPassword" \
+                   "$ORG_GRADLE_PROJECT_signingInMemoryKey" "$ORG_GRADLE_PROJECT_signingInMemoryKeyPassword"; do
+            [ -n "$v" ] && set=$((set + 1))
+          done
+          if [ "$set" -eq 0 ]; then
+            echo "::warning::Maven Central secrets are not configured; skipping publication."
+            exit 0
+          fi
+          if [ "$set" -ne 4 ]; then
+            echo "::error::Only $set of 4 Maven Central secrets are set (MAVEN_CENTRAL_USERNAME, MAVEN_CENTRAL_PASSWORD, SIGNING_KEY, SIGNING_KEY_PASSWORD); refusing to publish." >&2
+            exit 1
+          fi
+          if curl -fsI "https://repo1.maven.org/maven2/io/github/mikimn/libpolaroid/$VERSION/libpolaroid-$VERSION.pom" > /dev/null; then
+            echo "libpolaroid $VERSION is already on Maven Central; skipping."
+            exit 0
+          fi
+          ./gradlew :libpolaroid:publishAndReleaseToMavenCentral --stacktrace
+
+      - name: Publish the GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release edit "$TAG" --draft=false
