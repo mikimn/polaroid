@@ -3,22 +3,33 @@ package com.mikimn.polaroid.ui.camera
 import android.hardware.usb.UsbDevice
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.gestures.detectTransformGestures
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Button
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.unit.dp
 import com.mikimn.libpolaroid.StreamMode
 import com.mikimn.libpolaroid.compose.UvcCameraPreview
+import kotlinx.coroutines.launch
 import com.mikimn.libpolaroid.compose.UvcCameraState
 import com.mikimn.libpolaroid.compose.rememberIsStarted
 import com.mikimn.libpolaroid.compose.rememberUsbPermission
@@ -54,11 +65,29 @@ private fun DevicePreview(device: UsbDevice) {
     when (val state = rememberUvcCamera(device)) {
         UvcCameraState.Opening -> Message("Opening camera…")
         is UvcCameraState.Failed -> Message(state.message)
-        is UvcCameraState.Ready -> {
-            // The preview stays composed on error so the SurfaceView (and its lifecycle) is unaffected.
-            var error by remember(state) { mutableStateOf<String?>(null) }
-            var requested by remember(state.camera) { mutableStateOf<StreamMode?>(null) }
-            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+        is UvcCameraState.Ready -> CameraContent(state)
+    }
+}
+
+/** The preview with its mode picker and (collapsible) controls panel, for an opened camera. */
+@Composable
+private fun CameraContent(state: UvcCameraState.Ready) {
+    // The preview stays composed on error so the TextureView (and its lifecycle) is unaffected.
+    var error by remember(state) { mutableStateOf<String?>(null) }
+    var requested by remember(state.camera) { mutableStateOf<StreamMode?>(null) }
+    var showControls by rememberSaveable { mutableStateOf(false) }
+    val scope = rememberCoroutineScope()
+    val snackbar = remember { SnackbarHostState() }
+    // Hoisted per camera: values are cached here, not re-queried per frame.
+    val controls = remember(state.camera) {
+        ControlsState(state.camera.controls, scope, onError = { message -> scope.launch { snackbar.showSnackbar(message) } })
+    }
+    LaunchedEffect(controls) { controls.load() }
+
+    Box(Modifier.fillMaxSize()) {
+        Column(Modifier.verticalScroll(rememberScrollState()), horizontalAlignment = Alignment.CenterHorizontally) {
+            // Pinch to zoom is mapped onto the camera's zoom control, when it has one.
+            Box(Modifier.pointerInput(controls) { detectTransformGestures { _, _, zoom, _ -> controls.pinchZoom(zoom) } }) {
                 UvcCameraPreview(
                     camera = state.camera,
                     modifier = Modifier.fillMaxWidth(),
@@ -71,10 +100,13 @@ private fun DevicePreview(device: UsbDevice) {
                         }
                     },
                 )
-                ModePicker(modes = state.modes, selected = requested, onSelect = { requested = it; error = null })
-                error?.let { Message(it) }
             }
+            ModePicker(modes = state.modes, selected = requested, onSelect = { requested = it; error = null })
+            error?.let { Message(it) }
+            TextButton(onClick = { showControls = !showControls }) { Text(if (showControls) "Hide controls" else "Controls") }
+            if (showControls) ControlsPanel(controls)
         }
+        SnackbarHost(snackbar, Modifier.align(Alignment.BottomCenter))
     }
 }
 
