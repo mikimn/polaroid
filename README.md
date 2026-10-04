@@ -18,6 +18,20 @@ Polaroid is an Android library (`:libpolaroid`) that opens a USB Video Class cam
 
 ### Add the library
 
+**From Maven Central** (once the first release is published, see [Releasing](#releasing)):
+
+```kotlin
+// settings.gradle(.kts) / build.gradle(.kts)
+repositories { mavenCentral() }
+
+// app/build.gradle.kts
+dependencies { implementation("io.github.mikimn:libpolaroid:0.1.0") }
+```
+
+The AAR bundles the native libraries for `arm64-v8a` and `x86_64`.
+
+**From source** (e.g. to try unreleased changes): either run `./gradlew :libpolaroid:publishToMavenLocal` and add `mavenLocal()` to your repositories, or include the module directly:
+
 1. Add this repository as a git submodule (or copy it) and include the module in `settings.gradle`:
 
    ```bash
@@ -36,12 +50,14 @@ Polaroid is an Android library (`:libpolaroid`) that opens a USB Video Class cam
    implementation(project(":libpolaroid"))
    ```
 
-3. Declare USB host support and the camera permission in your `AndroidManifest.xml`. Android requires `CAMERA` to open UVC devices over USB:
+### Declare permissions
 
-   ```xml
-   <uses-feature android:name="android.hardware.usb.host" android:required="false" />
-   <uses-permission android:name="android.permission.CAMERA" />
-   ```
+Declare USB host support and the camera permission in your `AndroidManifest.xml`. Android requires `CAMERA` to open UVC devices over USB:
+
+```xml
+<uses-feature android:name="android.hardware.usb.host" android:required="false" />
+<uses-permission android:name="android.permission.CAMERA" />
+```
 
 ### Use the API
 
@@ -116,6 +132,13 @@ Contributions are welcome. Please open an issue to discuss larger changes first.
 - The native build is CMake only. Do not reintroduce ndk-build (`Android.mk`) files.
 - Keep components small and reusable, in line with the existing composables.
 - See `CLAUDE.md` for an overview of the architecture and build setup.
+
+### Releasing
+
+`libpolaroid` is published with the [vanniktech maven-publish plugin](https://github.com/vanniktech/gradle-maven-publish-plugin). Coordinates (`io.github.mikimn:libpolaroid`), version (`VERSION_NAME`) and POM metadata live in `gradle.properties`.
+
+- Check what would be published: `./gradlew :libpolaroid:publishToMavenLocal` (inspect `~/.m2/repository/io/github/mikimn/libpolaroid`).
+- Publish to Maven Central (maintainers): `./gradlew :libpolaroid:publishAndReleaseToMavenCentral`, with these provided as `ORG_GRADLE_PROJECT_*` environment variables: `mavenCentralUsername` / `mavenCentralPassword` (a Central Portal user token), and `signingInMemoryKey` / `signingInMemoryKeyPassword` (an ASCII-armored GPG private key). Artifacts are only signed when `signingInMemoryKey` is set. The `io.github.mikimn` namespace must be verified on the [Central Portal](https://central.sonatype.com) first.
 
 ## How AI is Used in the Project
 

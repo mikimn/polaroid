@@ -29,6 +29,10 @@ No lint/format tooling is configured beyond Android defaults (`./gradlew lint`).
 
 `.github/workflows/ci.yml` runs on pushes to `main` and on PRs (read-only token, in-progress runs cancelled except on `main`): installs JDK 17, NDK `30.0.16248370` and CMake `3.22.1` (keep in sync with `libpolaroid/build.gradle`), runs `./gradlew test lint :app:assembleDebug`, and fails if any submodule under `third_party/` has local modifications. `app/build.gradle.kts` reads `compose_version` from `rootProject.extra` (the old `by ext` delegate resolved to `null` and broke `lint`).
 
+## Publishing
+
+`libpolaroid/build.gradle` applies `com.vanniktech.maven.publish` (version in the root `plugins {}` block); coordinates, version (`VERSION_NAME`) and POM fields are in `gradle.properties`. `./gradlew :libpolaroid:publishToMavenLocal` produces the AAR (verified to contain `jni/{arm64-v8a,x86_64}/libpolaroid.so`), sources/javadoc jars and a full Apache-2.0 POM. Central Portal upload (`publishAndReleaseToMavenCentral`) needs `ORG_GRADLE_PROJECT_mavenCentralUsername/Password` and, for signing, `signingInMemoryKey`/`signingInMemoryKeyPassword`; signing is skipped when the key is absent. Not yet published: the namespace verification and secrets must be set up by the repo owner.
+
 ## Native build architecture (the non-obvious part)
 
 Requires JDK 17 (e.g. `JAVA_HOME` pointing at Android Studio's JBR; the default JDK may be too new/old), NDK `30.0.16248370` (pinned via `ndkVersion` in `libpolaroid/build.gradle`) and SDK CMake 3.22.1. Clone with `--recurse-submodules`.
