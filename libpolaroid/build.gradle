@@ -1,3 +1,6 @@
+import javax.inject.Inject
+import org.gradle.process.ExecOperations
+
 plugins {
     id 'com.android.library'
     id 'org.jetbrains.kotlin.android'
@@ -61,6 +64,42 @@ dependencies {
     androidTestImplementation 'androidx.test.ext:junit:1.1.3'
     androidTestImplementation 'androidx.test.espresso:espresso-core:3.4.0'
 }
+
+// Host-side (no device) GoogleTest suite for the pure C++ logic in src/main/cpp/core.
+abstract class NativeTest extends DefaultTask {
+    @Inject
+    abstract ExecOperations getExecOperations()
+
+    @InputFiles
+    @PathSensitive(PathSensitivity.RELATIVE)
+    abstract ConfigurableFileCollection getSources()
+
+    // Must match the CMake version pinned in `android.externalNativeBuild.cmake.version`.
+    @Input
+    abstract Property<String> getCmakeBin()
+
+    @OutputDirectory
+    abstract DirectoryProperty getBuildDir()
+
+    @TaskAction
+    void run() {
+        def bin = cmakeBin.get()
+        def source = sources.files.find { it.name == 'tests' }
+        def build = buildDir.get().asFile
+        execOperations.exec { it.commandLine "$bin/cmake", '-S', source, '-B', build, '-GNinja', "-DCMAKE_MAKE_PROGRAM=$bin/ninja" }
+        execOperations.exec { it.commandLine "$bin/cmake", '--build', build }
+        execOperations.exec { it.commandLine "$bin/ctest", '--test-dir', build, '--output-on-failure' }
+    }
+}
+
+tasks.register('nativeTest', NativeTest) {
+    group = 'verification'
+    description = 'Builds and runs the native C++ unit tests on the host machine.'
+    sources.from(file('src/main/cpp/tests'), file('src/main/cpp/core'))
+    cmakeBin = providers.provider { "${android.sdkDirectory}/cmake/3.22.1/bin".toString() }
+    buildDir = layout.buildDirectory.dir('native-tests')
+}
+tasks.named('check') { dependsOn 'nativeTest' }
 
 // Publishing. Coordinates and POM basics come from gradle.properties (GROUP, VERSION_NAME, POM_*).
 // Release to Maven Central with ./gradlew publishAndReleaseToMavenCentral (needs the Central Portal

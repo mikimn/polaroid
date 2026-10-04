@@ -22,5 +22,7 @@ unset(CMAKE_SKIP_INSTALL_RULES)
 
 # --- Native library loaded by NativePolaroidLibrary ---
 
+add_subdirectory(core)
+
 add_library(polaroid SHARED uvc_camera.cpp)
-target_link_libraries(polaroid PRIVATE LibUVC::UVCStatic usb-1.0 android log)
+target_link_libraries(polaroid PRIVATE polaroid_core LibUVC::UVCStatic usb-1.0 android log)
