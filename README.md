@@ -51,7 +51,7 @@ The API is deliberately small:
 | --- | --- |
 | `UsbManager.uvcDevices()` / `UsbDevice.isUvc` | Find attached UVC cameras |
 | `UvcCamera.open(fd)` | Open a camera from the file descriptor of a `UsbDeviceConnection` |
-| `UvcCamera.start(surface, width, height, fps)` | Stream to a `Surface`; returns the `Size` actually negotiated |
+| `UvcCamera.start(surface, width, height, fps)` | Stream to a `Surface`; returns the `StreamSize` actually negotiated |
 | `UvcCamera.stop()` / `close()` | Stop streaming / release the camera |
 
 ```kotlin
@@ -76,7 +76,7 @@ connection.close()
 
 Notes:
 
-- `start` picks the closest mode the camera supports (preferring MJPEG, then YUYV), so use the returned `Size` to set your preview's aspect ratio.
+- `start` picks the closest mode the camera supports (preferring MJPEG, then YUYV), so use the returned `StreamSize` to set your preview's aspect ratio. `StreamSize` is a plain `data class StreamSize(val width: Int, val height: Int)` rather than `android.util.Size`, which keeps the size logic unit-testable on the JVM.
 - Use a `TextureView` (or a surface you know is valid). A `SurfaceView` inside Jetpack Compose did not reliably receive its surface on some devices.
 - The example app's `ui/camera/` package shows the full flow as small composables.
 
@@ -110,7 +110,7 @@ Plug the camera in, open the app and tap **Allow camera access**, accepting the 
 
 Contributions are welcome. Please open an issue to discuss larger changes first.
 
-- Build the example app (`./gradlew :app:assembleDebug`) and run the unit tests (`./gradlew test`) before opening a pull request. Test camera-related changes on a real device and camera if you can.
+- Build the example app (`./gradlew :app:assembleDebug`) and run the unit tests (`./gradlew test`) before opening a pull request. `:libpolaroid` also has instrumented tests that exercise the real JNI layer (no camera needed): `./gradlew :libpolaroid:connectedDebugAndroidTest` on a device or emulator. Test camera-related changes on a real device and camera if you can.
 - Third-party code lives in `libpolaroid/src/main/cpp/third_party/` as git submodules (`libusb`, `libuvc`, `libjpeg-turbo`). **Keep them pristine** so they can be updated; never edit files inside them. Build integration belongs in `libpolaroid/src/main/cpp/cmake/` and the top-level `CMakeLists.txt`.
 - CI (`.github/workflows/ci.yml`) runs `./gradlew test lint :app:assembleDebug` on pushes to `main` and on pull requests, and fails if a third-party submodule was modified. Run the same command locally before opening a PR.
 - The native build is CMake only. Do not reintroduce ndk-build (`Android.mk`) files.
