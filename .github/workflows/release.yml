@@ -51,7 +51,7 @@ jobs:
           "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" "ndk;30.0.16248370" "cmake;3.22.1"
 
       - name: Test
-        run: ./gradlew test lint --stacktrace
+        run: ./gradlew test lint :libpolaroid:nativeTest --stacktrace
 
       - name: Build the library AAR
         run: ./gradlew :libpolaroid:assembleRelease --stacktrace
