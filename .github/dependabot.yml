@@ -14,3 +14,19 @@ updates:
     groups:
       androidx:
         patterns: ["androidx.*"]
+    ignore:
+      # AGP 9 needs Gradle 9.6+ and a hand-written migration, so only major updates are blocked
+      # (patch/minor 8.x updates still arrive). Dependabot names catalog plugins by their catalog key
+      # (`agp`, as in #33), so the key and the plugin ids are all listed.
+      - dependency-name: "agp"
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "com.android.application"
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "com.android.library"
+        update-types: ["version-update:semver-major"]
+      # Chained updates that need AGP 8.13+/9.1+ and so cannot be applied on their own.
+      # Remove once the toolchain migration has landed.
+      - dependency-name: "com.vanniktech.maven.publish"
+      - dependency-name: "androidx.compose:compose-bom"
+      # core-ktx 1.19 requires compileSdk 37 (verified: `checkDebugAarMetadata` fails on 35).
+      - dependency-name: "androidx.core:core-ktx"
