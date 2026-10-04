@@ -47,7 +47,10 @@ enum class ControlId(
     /** Auto-exposure mode, a bit flag: see [AutoExposureMode]. */
     AUTO_EXPOSURE_MODE(Target.CAMERA, 0x02, 1, 1, Kind.MODE),
 
-    /** Absolute exposure time in units of 100 µs. */
+    /**
+     * Absolute exposure time in units of 100 µs. The device field is unsigned 32 bits, but values are exposed as
+     * `Int`, so 2^31 or more (about 59 hours) would read back negative.
+     */
     EXPOSURE_TIME(Target.CAMERA, 0x04, 3, 4, Kind.RANGE),
     FOCUS(Target.CAMERA, 0x06, 5, 2, Kind.RANGE),
     AUTO_FOCUS(Target.CAMERA, 0x08, 15, 1, Kind.SWITCH),
@@ -112,7 +115,13 @@ internal interface ControlBackend {
 
 /**
  * One control of a camera. Values are the raw UVC values (see the [ControlId] docs for units).
- * Calls can throw [ControlException] and can be made before or during streaming.
+ *
+ * **Every access to [range], [options], [value], [set] and [reset] is a blocking USB control transfer** (bounded by a
+ * one second timeout, reported as [ControlException.Reason.TIMEOUT]) and can throw [ControlException]: call them
+ * from a background thread, never from the main thread or from composition. They can be made before or during
+ * streaming. A write the device refuses (the control is read-only, or an auto mode currently owns it, e.g. exposure
+ * time while auto-exposure is on) fails with [ControlException.Reason.UNSUPPORTED_OR_INVALID], the same as for an
+ * unsupported control; the UVC `GET_INFO` capability bits that would tell them apart are not read yet.
  */
 class Control internal constructor(
     val id: ControlId,
@@ -130,7 +139,12 @@ class Control internal constructor(
             ControlId.Kind.RANGE -> ControlRange(
                 min = readRequest(GET_MIN),
                 max = readRequest(GET_MAX),
-                step = readRequest(GET_RES).coerceAtLeast(1),
+                // Some cameras stall GET_RES; a step of 1 is the safe reading and must not make set() fail.
+                step = try {
+                    readRequest(GET_RES).coerceAtLeast(1)
+                } catch (e: ControlException) {
+                    1
+                },
                 default = readRequest(GET_DEF),
             )
         }
@@ -162,7 +176,8 @@ class Control internal constructor(
                 val allowed = options.orEmpty()
                 require(newValue in allowed) { "${id.name} must be one of $allowed, was $newValue" }
             }
-            else -> {
+            ControlId.Kind.SWITCH -> require(newValue == 0 || newValue == 1) { "${id.name} must be 0 or 1, was $newValue" }
+            ControlId.Kind.RANGE -> {
                 val allowed = checkNotNull(range)
                 require(newValue in allowed) { "${id.name} must be in ${allowed.min}..${allowed.max}, was $newValue" }
             }
@@ -242,6 +257,7 @@ class CameraControls internal constructor(backend: ControlBackend, info: IntArra
 
     fun isSupported(id: ControlId) = id in controls
 
+    // Shortcuts for the common controls; `get(ControlId)` covers every control.
     val autoExposureMode: Control? get() = this[ControlId.AUTO_EXPOSURE_MODE]
     val exposureTime: Control? get() = this[ControlId.EXPOSURE_TIME]
     val focus: Control? get() = this[ControlId.FOCUS]
@@ -256,4 +272,9 @@ class CameraControls internal constructor(backend: ControlBackend, info: IntArra
     val gain: Control? get() = this[ControlId.GAIN]
     val whiteBalanceTemperature: Control? get() = this[ControlId.WHITE_BALANCE_TEMPERATURE]
     val autoWhiteBalance: Control? get() = this[ControlId.AUTO_WHITE_BALANCE]
+    val iris: Control? get() = this[ControlId.IRIS]
+    val gamma: Control? get() = this[ControlId.GAMMA]
+    val hue: Control? get() = this[ControlId.HUE]
+    val backlightCompensation: Control? get() = this[ControlId.BACKLIGHT_COMPENSATION]
+    val powerLineFrequency: Control? get() = this[ControlId.POWER_LINE_FREQUENCY]
 }

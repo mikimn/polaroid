@@ -134,6 +134,35 @@ class ControlsTest {
     }
 
     @Test
+    fun `setting a switch does not read anything from the device`() {
+        // No GET_DEF is available: a stalled read must not make set() fail.
+        controls.autoFocus!!.set(1)
+        assertEquals(listOf<Byte>(1), backend.writes.single().third)
+    }
+
+    @Test
+    fun `a stalled GET_RES falls back to a step of 1`() {
+        backend.put(1, 0x0B, Control.GET_MIN, 100, 2)
+        backend.put(1, 0x0B, Control.GET_MAX, 500, 2)
+        backend.put(1, 0x0B, Control.GET_DEF, 100, 2)
+        // GET_RES is not provided: the fake stalls it like a camera that does not implement it.
+        assertEquals(ControlRange(100, 500, 1, 100), controls.zoom!!.range)
+        controls.zoom!!.set(250)
+        assertEquals(1, backend.writes.size)
+    }
+
+    @Test
+    fun `shortcuts cover every common control`() {
+        val all = CameraControls(backend, intArrayOf(1, -1, 3, -1))
+        val shortcuts = listOf(
+            all.autoExposureMode, all.exposureTime, all.focus, all.autoFocus, all.zoom, all.pan, all.tilt, all.iris,
+            all.brightness, all.contrast, all.saturation, all.sharpness, all.gain, all.gamma, all.hue,
+            all.backlightCompensation, all.powerLineFrequency, all.whiteBalanceTemperature, all.autoWhiteBalance,
+        )
+        assertEquals(ControlId.values().toSet(), shortcuts.map { it!!.id }.toSet())
+    }
+
+    @Test
     fun `mode controls expose the supported options and validate against them`() {
         // GET_RES is a bitmask: manual (1) and aperture priority (8).
         backend.put(1, 0x02, Control.GET_RES, 0b1001, 1)
