@@ -28,7 +28,11 @@ No lint/format tooling is configured beyond Android defaults (`./gradlew lint`).
 
 ## Native tests
 
-`./gradlew :libpolaroid:nativeTest` (also part of `check`) builds and runs `libpolaroid/src/main/cpp/tests`, a standalone host CMake project (SDK CMake 3.22.1 + Ninja; fetches GoogleTest 1.15.2 with FetchContent, so the first run needs network). It tests `src/main/cpp/core/`: `blit.*` (RGB→RGBX copy with strides) and `stream_mode.*` (closest-size ordering, size packing). `core/` must stay free of Android/libuvc/JNI includes; `uvc_camera.cpp` is the thin JNI/libuvc layer on top of it.
+`./gradlew :libpolaroid:nativeTest` (also part of `check`) builds and runs `libpolaroid/src/main/cpp/tests`, a standalone host CMake project (SDK CMake 3.22.1 + Ninja, tied to the version in the task; fetches GoogleTest 1.15.2 with FetchContent and a pinned `URL_HASH`, so the first run needs network; the task declares inputs/outputs so it is up to date when nothing changed). It tests `src/main/cpp/core/`: `blit.*` (RGB→RGBX copy with strides) and `stream_mode.*` (closest-size ordering, size packing). `core/` must stay free of Android/libuvc/JNI includes; `uvc_camera.cpp` is the thin JNI/libuvc layer on top of it.
+
+## CI
+
+`.github/workflows/ci.yml` runs on pushes to `main` and on PRs (read-only token, in-progress runs cancelled except on `main`): installs JDK 17, NDK `30.0.16248370` and CMake `3.22.1` (keep in sync with `libpolaroid/build.gradle`), runs `./gradlew test lint :libpolaroid:nativeTest :app:assembleDebug`, and fails if any submodule under `third_party/` has local modifications. `app/build.gradle.kts` reads `compose_version` from `rootProject.extra` (the old `by ext` delegate resolved to `null` and broke `lint`).
 
 ## Native build architecture (the non-obvious part)
 
