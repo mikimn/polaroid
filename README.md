@@ -15,6 +15,7 @@ Polaroid is an Android library (`:libpolaroid`) that opens a USB Video Class cam
 
 - Android `minSdk 24`, arm64-v8a or x86_64 device (USB host support required)
 - JDK 17, Android SDK 35, NDK `30.0.16248370` and CMake `3.22.1` (installable from the SDK Manager)
+- The library is built with Kotlin 1.9, so consuming projects need Kotlin 1.8 or newer to read its metadata. Its only runtime dependency is the Kotlin standard library.
 
 ### Add the library
 
