@@ -22,12 +22,12 @@ jobs:
         with:
           submodules: recursive
 
-      - uses: actions/setup-java@v4
+      - uses: actions/setup-java@v6
         with:
           distribution: temurin
           java-version: 17
 
-      - uses: gradle/actions/setup-gradle@v4
+      - uses: gradle/actions/setup-gradle@v6
 
       # Keep these in sync with ndkVersion / cmake version in libpolaroid/build.gradle
       - name: Install NDK and CMake
@@ -41,9 +41,17 @@ jobs:
       - name: Verify third-party submodules are untouched
         run: git submodule foreach --recursive 'git diff --quiet && test -z "$(git status --porcelain)"'
 
+      - name: Upload development APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: polaroid-debug-${{ github.event.pull_request.head.sha || github.sha }}
+          path: app/build/outputs/apk/debug/app-debug.apk
+          if-no-files-found: error
+          retention-days: 14
+
       - name: Upload lint reports
         if: failure()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: lint-reports
           path: "**/build/reports/lint-results-*.html"

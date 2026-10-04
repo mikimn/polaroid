@@ -126,6 +126,10 @@ sdk.dir=/path/to/Android/sdk
 
 Plug the camera in, open the app and tap **Allow camera access**, accepting the camera permission and the USB permission dialogs. The preview appears once access is granted.
 
+### Development builds
+
+Every CI run (pull requests and pushes to `main`) uploads the example app as a `polaroid-debug-<commit sha>` artifact (kept for 14 days): open the run under the repository's **Actions** tab and download it from the *Artifacts* section, unzip, then `adb install app-debug.apk`. These are debug-signed with the CI runner's throwaway debug key, so you must uninstall a previous development build before installing one from another run.
+
 ## Contributing
 
 Contributions are welcome. Please open an issue to discuss larger changes first.

@@ -37,12 +37,12 @@ jobs:
           fi
           echo "VERSION=$version" >> "$GITHUB_ENV"
 
-      - uses: actions/setup-java@v4
+      - uses: actions/setup-java@v6
         with:
           distribution: temurin
           java-version: 17
 
-      - uses: gradle/actions/setup-gradle@v4
+      - uses: gradle/actions/setup-gradle@v6
 
       # Keep these in sync with ndkVersion / cmake version in libpolaroid/build.gradle
       - name: Install NDK and CMake
@@ -51,7 +51,7 @@ jobs:
           "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" "ndk;30.0.16248370" "cmake;3.22.1"
 
       - name: Test
-        run: ./gradlew test lint --stacktrace
+        run: ./gradlew test lint :libpolaroid:nativeTest --stacktrace
 
       - name: Build the library AAR
         run: ./gradlew :libpolaroid:assembleRelease --stacktrace
