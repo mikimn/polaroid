@@ -137,10 +137,24 @@ Contributions are welcome. Please open an issue to discuss larger changes first.
 
 ### Releasing
 
-`libpolaroid` is published with the [vanniktech maven-publish plugin](https://github.com/vanniktech/gradle-maven-publish-plugin). Coordinates (`io.github.mikimn:libpolaroid`), version (`VERSION_NAME`) and POM metadata live in `gradle.properties`.
+The version lives in one place, `VERSION_NAME` in `gradle.properties`; it is used for the library publication and for the example app's `versionName`/`versionCode` (`MAJOR*10000 + MINOR*100 + PATCH`).
 
-- Check what would be published: `./gradlew :libpolaroid:publishToMavenLocal` (inspect `~/.m2/repository/io/github/mikimn/libpolaroid`).
-- Publish to Maven Central (maintainers): `./gradlew :libpolaroid:publishAndReleaseToMavenCentral`, with these provided as `ORG_GRADLE_PROJECT_*` environment variables: `mavenCentralUsername` / `mavenCentralPassword` (a Central Portal user token), and `signingInMemoryKey` / `signingInMemoryKeyPassword` (an ASCII-armored GPG private key). Artifacts are only signed when `signingInMemoryKey` is set. The `io.github.mikimn` namespace must be verified on the [Central Portal](https://central.sonatype.com) first.
+To cut a release:
+
+1. Set `VERSION_NAME=X.Y.Z` in `gradle.properties` and merge it to `main`.
+2. Tag and push: `git tag vX.Y.Z && git push origin vX.Y.Z`.
+
+The `Release` workflow (`.github/workflows/release.yml`) then checks that the tag matches `VERSION_NAME` and points at a commit on `main`, runs the tests and lint, builds the library AAR and the example APK, creates a **draft** GitHub Release with generated notes and the AAR and APK attached, publishes to Maven Central, and only then publishes the release (versions containing `-` are marked pre-release). Maven Central cannot be undone or re-run for a version, so it runs last, and every step is safe to re-run after a failure (an already-published version is skipped). If only some of the four Central secrets are set the run fails instead of silently skipping publication; with none set it skips with a warning. Release notes are generated from merged PRs, so there is no separate changelog file.
+
+Repository secrets used by the workflow (steps are skipped, not failed, when their secrets are missing):
+
+| Secret | Purpose |
+| --- | --- |
+| `ANDROID_KEYSTORE_BASE64`, `ANDROID_KEYSTORE_PASSWORD`, `ANDROID_KEY_ALIAS`, `ANDROID_KEY_PASSWORD` | Sign the release APK (base64 of the `.jks`). Without them the debug-signed APK is attached. |
+| `MAVEN_CENTRAL_USERNAME`, `MAVEN_CENTRAL_PASSWORD` | Central Portal user token |
+| `SIGNING_KEY`, `SIGNING_KEY_PASSWORD` | ASCII-armored GPG key used to sign the Maven artifacts |
+
+Publishing locally: `./gradlew :libpolaroid:publishToMavenLocal` to inspect the artifacts, or `./gradlew :libpolaroid:publishAndReleaseToMavenCentral` with the secrets above provided as `ORG_GRADLE_PROJECT_mavenCentralUsername`, `ORG_GRADLE_PROJECT_mavenCentralPassword`, `ORG_GRADLE_PROJECT_signingInMemoryKey` and `ORG_GRADLE_PROJECT_signingInMemoryKeyPassword`. The `io.github.mikimn` namespace must be verified on the [Central Portal](https://central.sonatype.com) first.
 
 ## How AI is Used in the Project
 
