@@ -14,3 +14,10 @@ updates:
     groups:
       androidx:
         patterns: ["androidx.*"]
+    ignore:
+      # These need a hand-written toolchain migration (AGP 9 / Gradle 9, publish plugin 0.37 needs AGP 8.13+,
+      # the Compose BOM 2026.x needs AGP 9.1+); Dependabot cannot do it. Remove once that PR has landed.
+      - dependency-name: "com.android.application"
+      - dependency-name: "com.android.library"
+      - dependency-name: "com.vanniktech.maven.publish"
+      - dependency-name: "androidx.compose:compose-bom"
