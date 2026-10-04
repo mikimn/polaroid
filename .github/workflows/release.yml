@@ -42,7 +42,7 @@ jobs:
           distribution: temurin
           java-version: 17
 
-      - uses: gradle/actions/setup-gradle@v4
+      - uses: gradle/actions/setup-gradle@v6
 
       # Keep these in sync with ndkVersion / cmake version in libpolaroid/build.gradle
       - name: Install NDK and CMake
