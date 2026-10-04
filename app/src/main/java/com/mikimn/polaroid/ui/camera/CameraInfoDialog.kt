@@ -49,6 +49,10 @@ internal fun CameraInfoDialog(camera: UvcCamera, onDismiss: () -> Unit) {
         text = {
             Column(Modifier.heightIn(max = 420.dp).verticalScroll(rememberScrollState())) {
                 Text(
+                    "The serial number is masked (last four characters only) so the report is safe to paste into a public issue.",
+                    style = MaterialTheme.typography.bodySmall,
+                )
+                Text(
                     text = report ?: "Reading the camera…",
                     modifier = Modifier.horizontalScroll(rememberScrollState()),
                     style = MaterialTheme.typography.bodySmall.copy(fontFamily = FontFamily.Monospace, fontSize = 11.sp),

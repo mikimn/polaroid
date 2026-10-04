@@ -35,7 +35,12 @@ class UvcCameraTest {
             return negotiated
         }
 
-        override fun deviceInfo(handle: Long): IntArray = intArrayOf(0x046d, 0x0825, 0x0110)
+        var infoReads = 0
+
+        override fun deviceInfo(handle: Long): IntArray {
+            infoReads++
+            return intArrayOf(0x046d, 0x0825, 0x0110)
+        }
 
         override fun deviceStrings(handle: Long): Array<String?> = arrayOf("Acme", "Cam 1", null)
 
@@ -150,6 +155,22 @@ class UvcCameraTest {
     fun `info combines the native ids and strings`() {
         val info = UvcCamera.open(FakeNative(), 7).info
         assertEquals(CameraInfo(0x046d, 0x0825, "1.10", "Acme", "Cam 1", null), info)
+    }
+
+    @Test
+    fun `info is read once and cached`() {
+        val fake = FakeNative()
+        val camera = UvcCamera.open(fake, 7)
+        assertEquals(camera.info, camera.info)
+        assertEquals(1, fake.infoReads)
+    }
+
+    @Test
+    fun `unreadable ids become null`() {
+        val info = CameraInfo.from(intArrayOf(-1, -1, 0x0200), arrayOf(null, null, null))
+        assertEquals(null, info.vendorId)
+        assertEquals(null, info.productId)
+        assertEquals("2.00", info.uvcVersion)
     }
 
     @Test

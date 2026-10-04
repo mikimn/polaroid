@@ -3,6 +3,7 @@ package com.mikimn.libpolaroid
 import android.util.Log
 import android.view.Surface
 import java.io.IOException
+import java.util.Locale
 
 /**
  * Pixel format of a camera stream. The codes are shared with the native layer
@@ -34,23 +35,24 @@ data class StreamMode(val format: StreamFormat, val width: Int, val height: Int,
 }
 
 /**
- * What the device reports about itself. [uvcVersion] is the UVC specification it complies with, e.g. "1.10";
- * the strings are null when the device does not provide them.
+ * What the device reports about itself. [uvcVersion] is the UVC specification it complies with, e.g. "1.10". The ids
+ * and the strings are null when the device does not provide them or they could not be read.
  */
 data class CameraInfo(
-    val vendorId: Int,
-    val productId: Int,
+    val vendorId: Int?,
+    val productId: Int?,
     val uvcVersion: String,
     val manufacturer: String?,
     val product: String?,
     val serialNumber: String?,
 ) {
     internal companion object {
-        /** Builds the info from the native `{vendorId, productId, bcdUVC}` and `{manufacturer, product, serial}`. */
+        /** Builds the info from the native `{vendorId, productId, bcdUVC}` (ids are -1 if unreadable) and strings. */
         fun from(ints: IntArray, strings: Array<String?>) = CameraInfo(
-            vendorId = ints[0],
-            productId = ints[1],
-            uvcVersion = "%d.%02x".format(ints[2] shr 8 and 0xFF, ints[2] and 0xFF),
+            vendorId = ints[0].takeIf { it >= 0 },
+            productId = ints[1].takeIf { it >= 0 },
+            // Locale.ROOT: the text must not depend on the user's digits or separators.
+            uvcVersion = String.format(Locale.ROOT, "%d.%02x", ints[2] shr 8 and 0xFF, ints[2] and 0xFF),
             manufacturer = strings.getOrNull(0),
             product = strings.getOrNull(1),
             serialNumber = strings.getOrNull(2),
@@ -67,11 +69,17 @@ class UvcCamera internal constructor(private val native: UvcNative, private var 
 
     private var cachedControls: CameraControls? = null
 
-    /** Identity of the device (vendor/product ids, strings, UVC version); works without streaming. */
+    private var cachedInfo: CameraInfo? = null
+
+    /**
+     * Identity of the device (vendor/product ids, strings, UVC version); works without streaming. The first access
+     * reads the descriptors over USB (two JNI calls and up to three string requests, under the camera lock), so call
+     * it from a background thread; the result is cached because descriptors do not change.
+     */
     val info: CameraInfo
         @Synchronized get() {
             check(handle != 0L) { "Camera is closed" }
-            return CameraInfo.from(native.deviceInfo(handle), native.deviceStrings(handle))
+            return cachedInfo ?: CameraInfo.from(native.deviceInfo(handle), native.deviceStrings(handle)).also { cachedInfo = it }
         }
 
     /**

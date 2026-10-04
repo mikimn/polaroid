@@ -6,11 +6,13 @@ import com.mikimn.libpolaroid.ControlId
 import com.mikimn.libpolaroid.StreamFormat
 import com.mikimn.libpolaroid.StreamMode
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class CameraReportTest {
     private val info = CameraInfo(0x046d, 0x0825, "1.10", "Acme", "Cam 1", null)
+    private val noInfo = CameraInfo(null, null, "1.00", null, null, null)
 
     private fun snapshot(modes: List<StreamMode>, controls: List<ControlReport>) = CameraSnapshot(info, modes, controls)
 
@@ -75,5 +77,25 @@ class CameraReportTest {
         val text = formatReport(snapshot(emptyList(), emptyList()))
         assertTrue(text.contains("Stream modes (0)\n  none"))
         assertTrue(text.endsWith("\n") && !text.endsWith("\n\n"))
+    }
+
+    @Test
+    fun `serial numbers are masked to the last four characters`() {
+        assertEquals("****A1B2", maskSerial("00123456A1B2"))
+        assertEquals("****", maskSerial("12"))
+        assertEquals("****", maskSerial("1234"))
+        assertEquals("unknown", maskSerial(null))
+        assertEquals("unknown", maskSerial(""))
+        val withSerial = CameraSnapshot(info.copy(serialNumber = "SN-9876-5432"), emptyList(), emptyList())
+        val text = formatReport(withSerial)
+        assertTrue(text.contains("Serial:       ****5432"))
+        assertFalse(text.contains("SN-9876"))
+    }
+
+    @Test
+    fun `unreadable ids are reported as unknown instead of zeros`() {
+        val text = formatReport(CameraSnapshot(noInfo, emptyList(), emptyList()))
+        assertTrue(text.contains("Vendor ID:    unknown"))
+        assertTrue(text.contains("Product ID:   unknown"))
     }
 }

@@ -4,6 +4,7 @@ import com.mikimn.libpolaroid.CameraInfo
 import com.mikimn.libpolaroid.ControlId
 import com.mikimn.libpolaroid.StreamMode
 import com.mikimn.libpolaroid.UvcCamera
+import java.util.Locale
 
 /** One row of the controls table: what the camera reports for a control. */
 internal data class ControlReport(
@@ -60,9 +61,9 @@ internal fun formatReport(snapshot: CameraSnapshot): String = buildString {
     appendLine()
     appendLine("Product:      ${info.product ?: "unknown"}")
     appendLine("Manufacturer: ${info.manufacturer ?: "unknown"}")
-    appendLine("Serial:       ${info.serialNumber ?: "unknown"}")
-    appendLine("Vendor ID:    0x%04x".format(info.vendorId))
-    appendLine("Product ID:   0x%04x".format(info.productId))
+    appendLine("Serial:       ${maskSerial(info.serialNumber)}")
+    appendLine("Vendor ID:    ${hexId(info.vendorId)}")
+    appendLine("Product ID:   ${hexId(info.productId)}")
     appendLine("UVC version:  ${info.uvcVersion}")
     appendLine()
     appendLine("Stream modes (${snapshot.modes.size})")
@@ -86,6 +87,19 @@ internal fun formatReport(snapshot: CameraSnapshot): String = buildString {
         }
     }
 }.trimEnd() + "\n"
+
+/** `0x046d`, or "unknown" when the device did not report it; fixed locale so digits never vary. */
+private fun hexId(id: Int?): String = if (id == null) "unknown" else String.format(Locale.ROOT, "0x%04x", id)
+
+/**
+ * The report is meant to be pasted into public issues and a serial number identifies one physical unit, so only the
+ * last four characters are kept ("****A1B2"); "unknown" when the device has none.
+ */
+internal fun maskSerial(serial: String?): String = when {
+    serial.isNullOrEmpty() -> "unknown"
+    serial.length <= 4 -> "****"
+    else -> "****" + serial.takeLast(4)
+}
 
 private fun Int?.text(): String = this?.toString() ?: "-"
 
