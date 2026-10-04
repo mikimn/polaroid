@@ -1,8 +1,6 @@
-val compose_version: String by rootProject.extra
-
 plugins {
-    id("com.android.application")
-    id("org.jetbrains.kotlin.android")
+    alias(libs.plugins.android.application)
+    alias(libs.plugins.kotlin.android)
 }
 
 android {
@@ -56,9 +54,9 @@ android {
         compose = true
     }
     composeOptions {
-        kotlinCompilerExtensionVersion = "1.2.0"
+        kotlinCompilerExtensionVersion = libs.versions.composeCompiler.get()
     }
-    packagingOptions {
+    packaging {
         resources {
             excludes += "/META-INF/{AL2.0,LGPL2.1}"
         }
@@ -67,17 +65,19 @@ android {
 
 dependencies {
     implementation(project(":libpolaroid"))
-    implementation("androidx.core:core-ktx:1.7.0")
-    implementation("androidx.lifecycle:lifecycle-runtime-ktx:2.3.1")
-    implementation("androidx.activity:activity-compose:1.3.1")
-    implementation("androidx.compose.ui:ui:$compose_version")
-    implementation("androidx.compose.ui:ui-tooling-preview:$compose_version")
-    implementation("androidx.compose.material3:material3:1.0.0-alpha11")
-    implementation("androidx.compose.ui:ui-tooling-preview-android:1.6.0")
-    testImplementation("junit:junit:4.13.2")
-    androidTestImplementation("androidx.test.ext:junit:1.1.3")
-    androidTestImplementation("androidx.test.espresso:espresso-core:3.4.0")
-    androidTestImplementation("androidx.compose.ui:ui-test-junit4:$compose_version")
-    debugImplementation("androidx.compose.ui:ui-tooling:$compose_version")
-    debugImplementation("androidx.compose.ui:ui-test-manifest:$compose_version")
+    implementation(libs.androidx.core.ktx)
+    implementation(libs.androidx.lifecycle.runtime.ktx)
+    implementation(libs.androidx.lifecycle.runtime.compose)
+    implementation(libs.androidx.activity.compose)
+    implementation(platform(libs.androidx.compose.bom))
+    implementation(libs.androidx.compose.ui)
+    implementation(libs.androidx.compose.ui.tooling.preview)
+    implementation(libs.androidx.compose.material3)
+    testImplementation(libs.junit)
+    androidTestImplementation(libs.androidx.test.ext.junit)
+    androidTestImplementation(libs.androidx.test.espresso.core)
+    androidTestImplementation(platform(libs.androidx.compose.bom))
+    androidTestImplementation(libs.androidx.compose.ui.test.junit4)
+    debugImplementation(libs.androidx.compose.ui.tooling)
+    debugImplementation(libs.androidx.compose.ui.test.manifest)
 }
