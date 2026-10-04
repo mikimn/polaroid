@@ -35,6 +35,18 @@ class UvcCameraTest {
             return negotiated
         }
 
+        override fun controlInfo(handle: Long): IntArray {
+            calls += "controlInfo($handle)"
+            return intArrayOf(1, 1 shl 9, 3, 1 shl 0) // zoom + brightness
+        }
+
+        override fun getControl(handle: Long, unit: Int, selector: Int, request: Int, length: Int): ByteArray =
+            ByteArray(length)
+
+        override fun setControl(handle: Long, unit: Int, selector: Int, data: ByteArray) {
+            calls += "setControl($handle,$unit,$selector,${data.size})"
+        }
+
         override fun stop(handle: Long) {
             calls += "stop($handle)"
         }
@@ -119,6 +131,24 @@ class UvcCameraTest {
         val camera = UvcCamera.open(FakeNative(), 7)
         camera.close()
         assertThrows(IllegalStateException::class.java) { camera.supportedModes() }
+    }
+
+    @Test
+    fun `controls are built from the native control info and fail after close`() {
+        val camera = UvcCamera.open(FakeNative(), 7)
+        assertEquals(setOf(ControlId.ZOOM, ControlId.BRIGHTNESS), camera.controls.supported)
+        assertEquals(camera.controls, camera.controls) // cached
+        camera.close()
+        assertThrows(IllegalStateException::class.java) { camera.controls }
+    }
+
+    @Test
+    fun `control writes are forwarded to native with the camera handle`() {
+        val fake = FakeNative()
+        val camera = UvcCamera.open(fake, 7)
+        // The fake reports zero for every read, so the range is 0..0 and only 0 can be written.
+        camera.controls.zoom!!.set(0)
+        assertEquals("setControl(42,1,11,2)", fake.calls.last())
     }
 
     @Test

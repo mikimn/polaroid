@@ -88,6 +88,25 @@ fun CameraScreen() {
 ```
 
 `UvcCameraPreview(camera, modifier, requestedMode, onError)` streams while its `TextureView` exists and sizes itself to the stream's aspect ratio; pass a `StreamMode` from `UvcCameraState.Ready.modes` as `requestedMode` to switch modes. The module declares the `CAMERA` permission and the optional USB-host feature in its manifest, and its public API is explicit (`explicitApi()`). It builds against Compose BOM 2024.09 and needs `compileSdk` 34+.
+### Camera controls
+
+`camera.controls` exposes what the connected device supports, discovered from the camera's own capability bitmaps, so an unsupported control is `null` rather than an error at call time. It works before and during streaming.
+
+```kotlin
+val zoom = camera.controls.zoom                  // null if the camera has no zoom
+if (zoom != null) {
+    val range = zoom.range!!                     // min, max, step, default as reported by the device
+    zoom.set(((range.min + range.max) / 2))      // SET_CUR; IllegalArgumentException outside the range
+    println(zoom.value)                          // GET_CUR
+    zoom.reset()                                 // back to the device default
+}
+camera.controls.supported                        // Set<ControlId>
+camera.controls.autoExposureMode?.options        // e.g. {AutoExposureMode.MANUAL, AutoExposureMode.AUTO}
+```
+
+**These calls are blocking USB transfers** (bounded by a one second timeout, reported as `ControlException.Reason.TIMEOUT`): use them from a background thread, not from the main thread or from composition. A write the device refuses, because the control is read-only or an auto mode currently owns it (for example exposure time while auto-exposure is on), fails with `UNSUPPORTED_OR_INVALID`, just like an unsupported control; the `GET_INFO` bits that would tell them apart are not read yet.
+
+Covered: auto-exposure mode, exposure time, focus (+ auto), iris, zoom, pan/tilt, brightness, contrast, saturation, sharpness, gamma, hue, gain, backlight compensation, power-line frequency and white balance temperature (+ auto). Values are the raw UVC values (see the `ControlId` docs for units). Device failures throw `ControlException` with a `reason` (`UNSUPPORTED_OR_INVALID`, `DISCONNECTED`, `TIMEOUT`). `EXPOSURE_TIME` is an unsigned 32-bit field exposed as `Int` (values from 2^31 would read back negative). Not yet covered: observing values that change by themselves under an auto mode (read `value` again), and relative controls.
 
 ### Use the API
 
@@ -99,6 +118,7 @@ The API is deliberately small:
 | `UvcCamera.open(fd)` | Open a camera from the file descriptor of a `UsbDeviceConnection` |
 | `UvcCamera.supportedModes()` | List the camera's renderable modes (MJPEG and YUYV) as `StreamMode(format, width, height, fps)` |
 | `UvcCamera.start(surface, width, height, fps, preferredFormat)` or `start(surface, mode)` | Stream to a `Surface`; returns the `StreamMode` actually negotiated |
+| `UvcCamera.controls` | Camera controls (zoom, exposure, focus, brightness, ...): `supported`, `zoom`, `focus`, ..., `get(ControlId)`. Each `Control` has `range`, `value`, `set(v)` and `reset()` |
 | `UvcCamera.stop()` / `close()` | Stop streaming / release the camera |
 
 ```kotlin
