@@ -15,14 +15,17 @@ updates:
       androidx:
         patterns: ["androidx.*"]
     ignore:
-      # AGP 9 needs Gradle 9.6+ and a hand-written migration, so only major updates are blocked
-      # (patch/minor 8.x updates still arrive). Dependabot names catalog plugins by their catalog key
-      # (`agp`, as in #33), so the key and the plugin ids are all listed.
+      # Every AGP update now fails: AGP 8.13 relies on a Gradle internal API removed in Gradle 9.6, and the
+      # wrapper is on 9.8; AGP 9 needs a hand-written migration. Dependabot names catalog plugins by their
+      # catalog key (`agp`, as in #33), so the key and the plugin ids are all listed. Remove with the migration.
       - dependency-name: "agp"
-        update-types: ["version-update:semver-major"]
       - dependency-name: "com.android.application"
-        update-types: ["version-update:semver-major"]
       - dependency-name: "com.android.library"
+      # Kotlin 2.x needs the Compose compiler Gradle plugin, the `compilerOptions` DSL and AGP 9, and raises the
+      # Kotlin version consumers of the published AAR need: part of the same migration. Minor/patch still arrive.
+      - dependency-name: "kotlin"
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "org.jetbrains.kotlin.android"
         update-types: ["version-update:semver-major"]
       # Chained updates that need AGP 8.13+/9.1+ and so cannot be applied on their own.
       # Remove once the toolchain migration has landed.
