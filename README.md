@@ -60,6 +60,34 @@ Declare USB host support and the camera permission in your `AndroidManifest.xml`
 <uses-permission android:name="android.permission.CAMERA" />
 ```
 
+### Jetpack Compose
+
+Compose apps can use the `libpolaroid-compose` module, which brings the camera plumbing as small composables and state holders (it depends on `libpolaroid` via `api`, so you only add this one):
+
+```kotlin
+dependencies { implementation("io.github.mikimn:libpolaroid-compose:0.1.0") } // or project(":libpolaroid-compose")
+```
+
+```kotlin
+@Composable
+fun CameraScreen() {
+    val devices by rememberUvcDevices()                         // updates on plug / unplug
+    val device = devices.firstOrNull() ?: return Text("Connect a UVC camera")
+    val permission = rememberUsbPermission(device)              // CAMERA + per-device USB permission
+    if (!permission.granted) {
+        Button(onClick = permission.request) { Text("Allow camera access") }
+        return
+    }
+    if (!rememberIsStarted()) return                            // release the camera in the background
+    when (val state = rememberUvcCamera(device)) {              // opens off the main thread, closes on dispose
+        UvcCameraState.Opening -> Text("Opening…")
+        is UvcCameraState.Failed -> Text(state.message)
+        is UvcCameraState.Ready -> UvcCameraPreview(state.camera, Modifier.fillMaxWidth())
+    }
+}
+```
+
+`UvcCameraPreview(camera, modifier, requestedMode, onError)` streams while its `TextureView` exists and sizes itself to the stream's aspect ratio; pass a `StreamMode` from `UvcCameraState.Ready.modes` as `requestedMode` to switch modes. The module declares the `CAMERA` permission and the optional USB-host feature in its manifest, so they **merge into your app's manifest** (apps that review their permissions will see `CAMERA`; Android requires it to open UVC devices), and its public API is explicit (`explicitApi()`). It builds against Compose BOM 2024.09 and needs `compileSdk` 34+.
 ### Camera controls
 
 `camera.controls` exposes what the connected device supports, discovered from the camera's own capability bitmaps, so an unsupported control is `null` rather than an error at call time. It works before and during streaming.
