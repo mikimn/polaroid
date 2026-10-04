@@ -15,6 +15,7 @@ updates:
       androidx:
         patterns: ["androidx.*"]
     ignore:
+      # All entries in this block exist only until the toolchain migration tracked in #41 lands; remove them together.
       # Every AGP update now fails: AGP 8.13 relies on a Gradle internal API removed in Gradle 9.6, and the
       # wrapper is on 9.8; AGP 9 needs a hand-written migration. Dependabot names catalog plugins by their
       # catalog key (`agp`, as in #33), so the key and the plugin ids are all listed. Remove with the migration.
