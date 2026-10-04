@@ -42,6 +42,8 @@ private fun DevicePreview(device: UsbDevice) {
         }
         return
     }
+    // Release the camera (and its USB connection) while the app is in the background.
+    if (!rememberIsStarted()) return
     when (val state = rememberUvcCamera(device)) {
         CameraState.Opening -> Message("Opening camera…")
         is CameraState.Failed -> Message(state.message)
