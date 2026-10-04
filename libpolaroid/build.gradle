@@ -4,6 +4,7 @@ import org.gradle.process.ExecOperations
 plugins {
     id 'com.android.library'
     id 'org.jetbrains.kotlin.android'
+    id 'com.vanniktech.maven.publish'
 }
 
 android {
@@ -99,3 +100,13 @@ tasks.register('nativeTest', NativeTest) {
     buildDir = layout.buildDirectory.dir('native-tests')
 }
 tasks.named('check') { dependsOn 'nativeTest' }
+
+// Publishing. Coordinates and POM basics come from gradle.properties (GROUP, VERSION_NAME, POM_*).
+// Release to Maven Central with ./gradlew publishAndReleaseToMavenCentral (needs the Central Portal
+// and signing credentials as ORG_GRADLE_PROJECT_* environment variables, see README).
+mavenPublishing {
+    publishToMavenCentral(com.vanniktech.maven.publish.SonatypeHost.CENTRAL_PORTAL)
+    if (providers.gradleProperty('signingInMemoryKey').isPresent()) {
+        signAllPublications()
+    }
+}
