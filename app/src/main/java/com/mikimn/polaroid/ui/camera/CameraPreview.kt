@@ -31,7 +31,7 @@ fun CameraPreview(
     camera: UvcCamera,
     modifier: Modifier = Modifier,
     requestedMode: StreamMode? = null,
-    onError: (Exception) -> Unit = {},
+    onError: (failed: StreamMode?, error: Exception) -> Unit = { _, _ -> },
 ) {
     val currentOnError by rememberUpdatedState(onError)
     // Until the stream size is known, assume 16:9; afterwards match the camera so the image is not stretched.
@@ -46,7 +46,7 @@ fun CameraPreview(
                         camera = camera,
                         post = view::post,
                         onStarted = { mode -> aspectRatio = mode.width.toFloat() / mode.height },
-                        onError = { currentOnError(it) },
+                        onError = { failed, e -> currentOnError(failed, e) },
                     )
                     view.tag = controller
                     view.surfaceTextureListener = controller
@@ -73,7 +73,7 @@ private class PreviewController(
     private val camera: UvcCamera,
     private val post: (Runnable) -> Boolean,
     private val onStarted: (StreamMode) -> Unit,
-    private val onError: (Exception) -> Unit,
+    private val onError: (failed: StreamMode?, error: Exception) -> Unit,
 ) : TextureView.SurfaceTextureListener {
     private var surface: Surface? = null
     private var mode: StreamMode? = null
@@ -100,7 +100,7 @@ private class PreviewController(
                 val started = requested?.let { camera.start(target, it) } ?: camera.start(target)
                 post(Runnable { onStarted(started) })
             } catch (e: Exception) {
-                post(Runnable { onError(e) })
+                post(Runnable { onError(requested, e) })
             }
         }
     }
