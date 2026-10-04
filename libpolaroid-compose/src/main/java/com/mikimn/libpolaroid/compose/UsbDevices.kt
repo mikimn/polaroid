@@ -15,11 +15,15 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.core.content.ContextCompat
 import com.mikimn.libpolaroid.uvcDevices
 
-/** Registers [receiver] for [actions] while the calling composable is in the composition. */
+/**
+ * Registers [receiver] for [actions] while the calling composable is in the composition. Not exported by default,
+ * which is right for broadcasts the app sends to itself (the USB permission result); the system's attach/detach
+ * broadcasts need [ContextCompat.RECEIVER_EXPORTED].
+ */
 @Composable
 internal fun BroadcastEffect(
     vararg actions: String,
-    flags: Int = ContextCompat.RECEIVER_EXPORTED,
+    flags: Int = ContextCompat.RECEIVER_NOT_EXPORTED,
     receiver: (Intent) -> Unit,
 ) {
     val context = LocalContext.current
@@ -38,7 +42,11 @@ internal fun BroadcastEffect(
 public fun rememberUvcDevices(): State<List<UsbDevice>> {
     val manager = LocalContext.current.getSystemService(UsbManager::class.java)
     val devices = remember { mutableStateOf(manager.uvcDevices()) }
-    BroadcastEffect(UsbManager.ACTION_USB_DEVICE_ATTACHED, UsbManager.ACTION_USB_DEVICE_DETACHED) {
+    BroadcastEffect(
+        UsbManager.ACTION_USB_DEVICE_ATTACHED,
+        UsbManager.ACTION_USB_DEVICE_DETACHED,
+        flags = ContextCompat.RECEIVER_EXPORTED, // sent by the system
+    ) {
         devices.value = manager.uvcDevices()
     }
     return devices
