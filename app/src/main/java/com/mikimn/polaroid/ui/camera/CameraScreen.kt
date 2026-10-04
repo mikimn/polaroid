@@ -3,7 +3,6 @@ package com.mikimn.polaroid.ui.camera
 import android.hardware.usb.UsbDevice
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.gestures.detectTransformGestures
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
@@ -29,7 +28,9 @@ import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.unit.dp
 import com.mikimn.libpolaroid.StreamMode
 import com.mikimn.libpolaroid.compose.UvcCameraPreview
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import com.mikimn.libpolaroid.compose.UvcCameraState
 import com.mikimn.libpolaroid.compose.rememberIsStarted
 import com.mikimn.libpolaroid.compose.rememberUsbPermission
@@ -78,16 +79,20 @@ private fun CameraContent(state: UvcCameraState.Ready) {
     var showControls by rememberSaveable { mutableStateOf(false) }
     val scope = rememberCoroutineScope()
     val snackbar = remember { SnackbarHostState() }
-    // Hoisted per camera: values are cached here, not re-queried per frame.
-    val controls = remember(state.camera) {
-        ControlsState(state.camera.controls, scope, onError = { message -> scope.launch { snackbar.showSnackbar(message) } })
+    // Hoisted per camera: values are cached here, not re-queried per frame. Built off the main thread because
+    // reading `camera.controls` takes the camera lock, which a stream start can hold for up to a second.
+    var controls by remember(state.camera) { mutableStateOf<ControlsState?>(null) }
+    LaunchedEffect(state.camera) {
+        val lookup = withContext(Dispatchers.IO) { state.camera.controls.asLookup() }
+        controls = ControlsState(lookup, scope, onError = { message -> scope.launch { snackbar.showSnackbar(message) } })
+            .also { it.load() }
     }
-    LaunchedEffect(controls) { controls.load() }
 
     Box(Modifier.fillMaxSize()) {
         Column(Modifier.verticalScroll(rememberScrollState()), horizontalAlignment = Alignment.CenterHorizontally) {
             // Pinch to zoom is mapped onto the camera's zoom control, when it has one.
-            Box(Modifier.pointerInput(controls) { detectTransformGestures { _, _, zoom, _ -> controls.pinchZoom(zoom) } }) {
+            // Only two-finger gestures are taken: a single finger still scrolls the surrounding column.
+            Box(Modifier.pointerInput(controls) { detectPinch { zoom -> controls?.pinchZoom(zoom) } }) {
                 UvcCameraPreview(
                     camera = state.camera,
                     modifier = Modifier.fillMaxWidth(),
@@ -104,7 +109,7 @@ private fun CameraContent(state: UvcCameraState.Ready) {
             ModePicker(modes = state.modes, selected = requested, onSelect = { requested = it; error = null })
             error?.let { Message(it) }
             TextButton(onClick = { showControls = !showControls }) { Text(if (showControls) "Hide controls" else "Controls") }
-            if (showControls) ControlsPanel(controls)
+            if (showControls) controls?.let { ControlsPanel(it) }
         }
         SnackbarHost(snackbar, Modifier.align(Alignment.BottomCenter))
     }

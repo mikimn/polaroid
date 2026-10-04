@@ -76,4 +76,12 @@ class ControlPresentationTest {
         assertEquals(100, pinchedZoom(120, range, 0f))
         assertEquals(240, pinchedZoom(200, range, 1.11f)) // 244 snaps down to the step grid
     }
+
+    @Test
+    fun `slider positions snap to the nearest step`() {
+        assertEquals(110, snap(106f, min = 100, step = 10, max = 500))
+        assertEquals(100, snap(104f, min = 100, step = 10, max = 500))
+        assertEquals(500, snap(499f, min = 100, step = 10, max = 500))
+        assertEquals(7, snap(7.4f, min = 0, step = 1, max = 100))
+    }
 }
