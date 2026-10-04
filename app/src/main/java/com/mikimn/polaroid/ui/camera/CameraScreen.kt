@@ -57,7 +57,17 @@ private fun DevicePreview(device: UsbDevice) {
                     camera = state.camera,
                     modifier = Modifier.fillMaxWidth(),
                     requestedMode = requested,
-                    onError = { error = it.message ?: "Could not start preview" },
+                    onError = {
+                        val reason = it.message ?: "Could not start preview"
+                        val failed = requested
+                        if (failed != null) {
+                            // Don't keep highlighting a mode that is not streaming: fall back to the default.
+                            requested = null
+                            error = "$reason (${failed.format} ${failed.width}×${failed.height} @${failed.fps}); using the default mode"
+                        } else {
+                            error = reason
+                        }
+                    },
                 )
                 ModePicker(modes = state.modes, selected = requested, onSelect = { requested = it; error = null })
                 error?.let { Message(it) }
