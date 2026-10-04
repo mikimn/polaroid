@@ -1,5 +1,7 @@
 # Polaroid
 
+[![CI](https://github.com/mikimn/polaroid/actions/workflows/ci.yml/badge.svg)](https://github.com/mikimn/polaroid/actions/workflows/ci.yml)
+
 This library enables working with UVC cameras on Android. It is based on `libuvc` and is heavily inspired by the [`UVCCamera`](https://github.com/saki4510t/UVCCamera) project.
 
 <img src="assets/icon-original.png" alt="Polaroid Logo" width="256" height="256">
@@ -48,12 +50,14 @@ The AAR bundles the native libraries for `arm64-v8a` and `x86_64`.
    implementation(project(":libpolaroid"))
    ```
 
-Then declare USB host support and the camera permission in your `AndroidManifest.xml`. Android requires `CAMERA` to open UVC devices over USB:
+### Declare permissions
 
-   ```xml
-   <uses-feature android:name="android.hardware.usb.host" android:required="false" />
-   <uses-permission android:name="android.permission.CAMERA" />
-   ```
+Declare USB host support and the camera permission in your `AndroidManifest.xml`. Android requires `CAMERA` to open UVC devices over USB:
+
+```xml
+<uses-feature android:name="android.hardware.usb.host" android:required="false" />
+<uses-permission android:name="android.permission.CAMERA" />
+```
 
 ### Use the API
 
@@ -124,6 +128,7 @@ Contributions are welcome. Please open an issue to discuss larger changes first.
 
 - Build the example app (`./gradlew :app:assembleDebug`) and run the unit tests (`./gradlew test`) before opening a pull request. Test camera-related changes on a real device and camera if you can.
 - Third-party code lives in `libpolaroid/src/main/cpp/third_party/` as git submodules (`libusb`, `libuvc`, `libjpeg-turbo`). **Keep them pristine** so they can be updated; never edit files inside them. Build integration belongs in `libpolaroid/src/main/cpp/cmake/` and the top-level `CMakeLists.txt`.
+- CI (`.github/workflows/ci.yml`) runs `./gradlew test lint :app:assembleDebug` on pushes to `main` and on pull requests, and fails if a third-party submodule was modified. Run the same command locally before opening a PR.
 - The native build is CMake only. Do not reintroduce ndk-build (`Android.mk`) files.
 - Keep components small and reusable, in line with the existing composables.
 - See `CLAUDE.md` for an overview of the architecture and build setup.
