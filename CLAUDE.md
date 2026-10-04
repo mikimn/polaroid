@@ -25,6 +25,10 @@ Use the Gradle wrapper from the repo root (`local.properties` holds the SDK path
 
 No lint/format tooling is configured beyond Android defaults (`./gradlew lint`).
 
+## CI
+
+`.github/workflows/ci.yml` runs on pushes to `main` and on PRs (read-only token, in-progress runs cancelled except on `main`): installs JDK 17, NDK `30.0.16248370` and CMake `3.22.1` (keep in sync with `libpolaroid/build.gradle`), runs `./gradlew test lint :app:assembleDebug`, and fails if any submodule under `third_party/` has local modifications. `app/build.gradle.kts` reads `compose_version` from `rootProject.extra` (the old `by ext` delegate resolved to `null` and broke `lint`).
+
 ## Native build architecture (the non-obvious part)
 
 Requires JDK 17 (e.g. `JAVA_HOME` pointing at Android Studio's JBR; the default JDK may be too new/old), NDK `30.0.16248370` (pinned via `ndkVersion` in `libpolaroid/build.gradle`) and SDK CMake 3.22.1. Clone with `--recurse-submodules`.

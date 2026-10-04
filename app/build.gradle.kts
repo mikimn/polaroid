@@ -1,4 +1,4 @@
-val compose_version: String? by ext
+val compose_version: String by rootProject.extra
 
 plugins {
     id("com.android.application")
