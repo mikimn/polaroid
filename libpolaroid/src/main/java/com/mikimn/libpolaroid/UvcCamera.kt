@@ -40,6 +40,31 @@ data class StreamMode(val format: StreamFormat, val width: Int, val height: Int,
  */
 class UvcCamera internal constructor(private val native: UvcNative, private var handle: Long) : AutoCloseable {
 
+    private var cachedControls: CameraControls? = null
+
+    /**
+     * The camera's controls (zoom, exposure, focus, ...), usable before or during streaming. Only
+     * controls the device reports as supported are present, see [CameraControls].
+     */
+    val controls: CameraControls
+        @Synchronized get() {
+            check(handle != 0L) { "Camera is closed" }
+            return cachedControls ?: CameraControls(controlBackend, native.controlInfo(handle)).also { cachedControls = it }
+        }
+
+    // Control transfers go through the camera's lock so they can never race a close.
+    private val controlBackend = object : ControlBackend {
+        override fun get(unit: Int, selector: Int, request: Int, length: Int): ByteArray = synchronized(this@UvcCamera) {
+            check(handle != 0L) { "Camera is closed" }
+            native.getControl(handle, unit, selector, request, length)
+        }
+
+        override fun set(unit: Int, selector: Int, data: ByteArray) = synchronized(this@UvcCamera) {
+            check(handle != 0L) { "Camera is closed" }
+            native.setControl(handle, unit, selector, data)
+        }
+    }
+
     /**
      * The renderable modes the camera advertises ([StreamFormat.MJPEG] and [StreamFormat.YUYV]; a size
      * with several frame rates appears once per rate). Other formats are omitted because [start] cannot

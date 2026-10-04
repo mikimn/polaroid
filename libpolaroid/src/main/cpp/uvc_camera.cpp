@@ -90,6 +90,19 @@ uvc_error_t getStreamCtrl(uvc_device_handle_t *devh, uvc_stream_ctrl_t *ctrl,
     return UVC_ERROR_INVALID_MODE;
 }
 
+// Throws com.mikimn.libpolaroid.ControlException(message, libusb error code) for a failed control transfer.
+void throwControlException(JNIEnv *env, int libusbError) {
+    jclass cls = env->FindClass("com/mikimn/libpolaroid/ControlException");
+    if (cls == nullptr) return;  // NoClassDefFoundError is already pending
+    jmethodID ctor = env->GetMethodID(cls, "<init>", "(Ljava/lang/String;I)V");
+    if (ctor == nullptr) return;
+    char msg[96];
+    snprintf(msg, sizeof(msg), "UVC control transfer failed: %s (%d)", libusb_error_name(libusbError), libusbError);
+    jstring text = env->NewStringUTF(msg);
+    jobject exception = env->NewObject(cls, ctor, text, static_cast<jint>(libusbError));
+    if (exception != nullptr) env->Throw(static_cast<jthrowable>(exception));
+}
+
 int classifyFormat(const uvc_format_desc_t *format) {
     if (format->bDescriptorSubtype == UVC_VS_FORMAT_MJPEG) return polaroid::kMjpeg;
     if (format->bDescriptorSubtype == UVC_VS_FORMAT_UNCOMPRESSED &&
@@ -263,6 +276,55 @@ Java_com_mikimn_libpolaroid_NativeUvc_start(JNIEnv *env, jobject, jlong handle,
     if (result == nullptr) return nullptr;  // OutOfMemoryError is already pending
     env->SetIntArrayRegion(result, 0, 4, mode);
     return result;
+}
+
+// Returns {cameraTerminalId, cameraControlsBitmap, processingUnitId, processingControlsBitmap}; a missing
+// terminal/unit is reported as id 0 and an empty bitmap.
+JNIEXPORT jintArray JNICALL
+Java_com_mikimn_libpolaroid_NativeUvc_controlInfo(JNIEnv *env, jobject, jlong handle) {
+    auto *cam = reinterpret_cast<Camera *>(handle);
+    const uvc_input_terminal_t *terminal = uvc_get_camera_terminal(cam->devh);
+    const uvc_processing_unit_t *unit = uvc_get_processing_units(cam->devh);
+    const jint info[4] = {
+        terminal ? terminal->bTerminalID : 0,
+        terminal ? static_cast<jint>(terminal->bmControls & 0xFFFFFFFFu) : 0,
+        unit ? unit->bUnitID : 0,
+        unit ? static_cast<jint>(unit->bmControls & 0xFFFFFFFFu) : 0,
+    };
+    jintArray result = env->NewIntArray(4);
+    if (result == nullptr) return nullptr;  // OutOfMemoryError is already pending
+    env->SetIntArrayRegion(result, 0, 4, info);
+    return result;
+}
+
+// GET_* request (`request` is the UVC request code, e.g. 0x81 = GET_CUR) of a control; returns the bytes read.
+JNIEXPORT jbyteArray JNICALL
+Java_com_mikimn_libpolaroid_NativeUvc_getControl(JNIEnv *env, jobject, jlong handle, jint unit,
+                                                 jint selector, jint request, jint length) {
+    auto *cam = reinterpret_cast<Camera *>(handle);
+    std::vector<uint8_t> buf(static_cast<size_t>(length));
+    const int ret = uvc_get_ctrl(cam->devh, static_cast<uint8_t>(unit), static_cast<uint8_t>(selector),
+                                 buf.data(), length, static_cast<enum uvc_req_code>(request));
+    if (ret < 0) {
+        throwControlException(env, ret);
+        return nullptr;
+    }
+    jbyteArray result = env->NewByteArray(ret);
+    if (result == nullptr) return nullptr;  // OutOfMemoryError is already pending
+    env->SetByteArrayRegion(result, 0, ret, reinterpret_cast<const jbyte *>(buf.data()));
+    return result;
+}
+
+JNIEXPORT void JNICALL
+Java_com_mikimn_libpolaroid_NativeUvc_setControl(JNIEnv *env, jobject, jlong handle, jint unit,
+                                                 jint selector, jbyteArray data) {
+    auto *cam = reinterpret_cast<Camera *>(handle);
+    const jsize length = env->GetArrayLength(data);
+    std::vector<uint8_t> buf(static_cast<size_t>(length));
+    env->GetByteArrayRegion(data, 0, length, reinterpret_cast<jbyte *>(buf.data()));
+    const int ret = uvc_set_ctrl(cam->devh, static_cast<uint8_t>(unit), static_cast<uint8_t>(selector),
+                                 buf.data(), length);
+    if (ret < 0) throwControlException(env, ret);
 }
 
 JNIEXPORT void JNICALL

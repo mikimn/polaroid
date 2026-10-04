@@ -60,6 +60,24 @@ Declare USB host support and the camera permission in your `AndroidManifest.xml`
 <uses-permission android:name="android.permission.CAMERA" />
 ```
 
+### Camera controls
+
+`camera.controls` exposes what the connected device supports, discovered from the camera's own capability bitmaps, so an unsupported control is `null` rather than an error at call time. It works before and during streaming.
+
+```kotlin
+val zoom = camera.controls.zoom                  // null if the camera has no zoom
+if (zoom != null) {
+    val range = zoom.range!!                     // min, max, step, default as reported by the device
+    zoom.set(((range.min + range.max) / 2))      // SET_CUR; IllegalArgumentException outside the range
+    println(zoom.value)                          // GET_CUR
+    zoom.reset()                                 // back to the device default
+}
+camera.controls.supported                        // Set<ControlId>
+camera.controls.autoExposureMode?.options        // e.g. {AutoExposureMode.MANUAL, AutoExposureMode.AUTO}
+```
+
+Covered: auto-exposure mode, exposure time, focus (+ auto), iris, zoom, pan/tilt, brightness, contrast, saturation, sharpness, gamma, hue, gain, backlight compensation, power-line frequency and white balance temperature (+ auto). Values are the raw UVC values (see the `ControlId` docs for units). Device failures throw `ControlException` with a `reason` (`UNSUPPORTED_OR_INVALID`, `DISCONNECTED`, `TIMEOUT`). Not yet covered: observing values that change by themselves under an auto mode (read `value` again), and relative controls.
+
 ### Use the API
 
 The API is deliberately small:
@@ -70,6 +88,7 @@ The API is deliberately small:
 | `UvcCamera.open(fd)` | Open a camera from the file descriptor of a `UsbDeviceConnection` |
 | `UvcCamera.supportedModes()` | List the camera's renderable modes (MJPEG and YUYV) as `StreamMode(format, width, height, fps)` |
 | `UvcCamera.start(surface, width, height, fps, preferredFormat)` or `start(surface, mode)` | Stream to a `Surface`; returns the `StreamMode` actually negotiated |
+| `UvcCamera.controls` | Camera controls (zoom, exposure, focus, brightness, ...): `supported`, `zoom`, `focus`, ..., `get(ControlId)`. Each `Control` has `range`, `value`, `set(v)` and `reset()` |
 | `UvcCamera.stop()` / `close()` | Stop streaming / release the camera |
 
 ```kotlin
