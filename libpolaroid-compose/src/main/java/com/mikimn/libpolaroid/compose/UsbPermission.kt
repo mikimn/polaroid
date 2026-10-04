@@ -10,11 +10,15 @@ import android.os.Build
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.Immutable
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.ui.platform.LocalContext
 import androidx.core.content.ContextCompat
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
+import androidx.lifecycle.compose.LocalLifecycleOwner
 
 /**
  * Whether the app may open a USB camera. [granted] is true once both the runtime CAMERA permission
@@ -24,7 +28,13 @@ import androidx.core.content.ContextCompat
 @Immutable
 public class UsbPermission(public val granted: Boolean, public val request: () -> Unit)
 
-/** Tracks and requests the permissions needed to open [device]; recomposes when they are granted. */
+/**
+ * Tracks and requests the permissions needed to open [device]; recomposes when they are granted, including when the
+ * user grants CAMERA from the system settings and returns to the app (both permissions are re-checked on resume).
+ *
+ * The composition must be hosted by an activity that can register activity-result callbacks (a `ComponentActivity`):
+ * it uses `rememberLauncherForActivityResult`, which fails under a bare `ComposeView` in another kind of host.
+ */
 @Composable
 public fun rememberUsbPermission(device: UsbDevice): UsbPermission {
     val context = LocalContext.current
@@ -54,6 +64,19 @@ public fun rememberUsbPermission(device: UsbDevice): UsbPermission {
     }
 
     BroadcastEffect(action) { usbGranted.value = hasUsbPermission() }
+
+    // Permissions can change while the app is in the background (system settings): re-check on resume.
+    val lifecycleOwner = LocalLifecycleOwner.current
+    DisposableEffect(lifecycleOwner, device) {
+        val observer = LifecycleEventObserver { _, event ->
+            if (event == Lifecycle.Event.ON_RESUME) {
+                cameraGranted.value = hasCameraPermission()
+                usbGranted.value = hasUsbPermission()
+            }
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
+    }
 
     val granted = cameraGranted.value && usbGranted.value
 
