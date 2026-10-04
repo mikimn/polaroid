@@ -26,7 +26,7 @@ fun ModePicker(
         horizontalArrangement = Arrangement.spacedBy(8.dp),
     ) {
         for (mode in modes) {
-            val label = "${mode.format} ${mode.width}×${mode.height} @${mode.fps}"
+            val label = mode.label()
             if (mode == selected) {
                 Button(onClick = { onSelect(mode) }) { Text(label) }
             } else {

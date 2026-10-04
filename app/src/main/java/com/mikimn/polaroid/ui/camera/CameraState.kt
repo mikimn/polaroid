@@ -45,7 +45,13 @@ fun rememberUvcCamera(device: UsbDevice): CameraState {
             try {
                 val camera = UvcCamera.open(connection.fileDescriptor)
                 // Listing modes reads the camera's descriptors; do it here, off the main thread.
-                Opened.Success(connection, camera, camera.supportedModes())
+                val modes = try {
+                    camera.supportedModes()
+                } catch (e: Exception) {
+                    camera.close() // otherwise the native handle would leak
+                    throw e
+                }
+                Opened.Success(connection, camera, modes)
             } catch (e: Exception) {
                 connection.close()
                 Opened.Failure(e.message ?: "Could not open camera")

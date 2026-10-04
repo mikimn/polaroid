@@ -57,7 +57,13 @@ private fun DevicePreview(device: UsbDevice) {
                     camera = state.camera,
                     modifier = Modifier.fillMaxWidth(),
                     requestedMode = requested,
-                    onError = { error = it.message ?: "Could not start preview" },
+                    onError = { failed, e ->
+                        // Ignore failures of a mode the user has already moved on from.
+                        resolveStartFailure(failed, requested, e.message ?: "Could not start preview")?.let {
+                            requested = it.requested
+                            error = it.message
+                        }
+                    },
                 )
                 ModePicker(modes = state.modes, selected = requested, onSelect = { requested = it; error = null })
                 error?.let { Message(it) }
