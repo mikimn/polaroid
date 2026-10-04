@@ -7,7 +7,7 @@ import android.view.Surface
  * lifecycle logic can be unit tested on the JVM with a fake.
  *
  * Every function throws [java.io.IOException] on failure. Modes are exchanged as `IntArray`s of
- * `{format, width, height, fps}` (format codes are those of [PixelFormat]); [listModes] returns
+ * `{format, width, height, fps}` (format codes are those of [StreamFormat]); [listModes] returns
  * several concatenated, [start] returns the one negotiated.
  */
 internal interface UvcNative {

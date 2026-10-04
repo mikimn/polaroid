@@ -51,3 +51,11 @@ TEST(IntervalToFps, RoundsToNearest) {
 TEST(IntervalToFps, ZeroIsInvalid) {
     EXPECT_EQ(intervalToFps(0), 0);
 }
+
+TEST(PixelFormatCode, MatchesKotlinStreamFormat) {
+    // Keep in sync with StreamFormat in UvcCamera.kt (pinned there by UvcCameraTest).
+    EXPECT_EQ(polaroid::kAnyFormat, -1);
+    EXPECT_EQ(polaroid::kMjpeg, 0);
+    EXPECT_EQ(polaroid::kYuyv, 1);
+    EXPECT_EQ(polaroid::kOtherFormat, 2);
+}

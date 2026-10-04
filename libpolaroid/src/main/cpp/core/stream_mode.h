@@ -25,7 +25,7 @@ std::vector<FrameSize> orderBySimilarity(const std::vector<FrameSize> &supported
  */
 int intervalToFps(uint32_t interval100ns);
 
-/** Pixel format codes shared with Kotlin's `PixelFormat` (see `UvcNative.kt`). */
+/** Pixel format codes shared with Kotlin's `StreamFormat` (see `UvcNative.kt`). */
 enum PixelFormatCode : int { kAnyFormat = -1, kMjpeg = 0, kYuyv = 1, kOtherFormat = 2 };
 
 }  // namespace polaroid

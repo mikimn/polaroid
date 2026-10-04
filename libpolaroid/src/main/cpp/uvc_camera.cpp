@@ -209,6 +209,7 @@ Java_com_mikimn_libpolaroid_NativeUvc_listModes(JNIEnv *env, jobject, jlong hand
         }
     }
     jintArray result = env->NewIntArray(static_cast<jsize>(modes.size()));
+    if (result == nullptr) return nullptr;  // OutOfMemoryError is already pending
     env->SetIntArrayRegion(result, 0, static_cast<jsize>(modes.size()), modes.data());
     return result;
 }
@@ -259,6 +260,7 @@ Java_com_mikimn_libpolaroid_NativeUvc_start(JNIEnv *env, jobject, jlong handle,
     const jint mode[4] = {negotiated ? classifyFormat(negotiated) : polaroid::kOtherFormat, width, height,
                           polaroid::intervalToFps(ctrl.dwFrameInterval)};
     jintArray result = env->NewIntArray(4);
+    if (result == nullptr) return nullptr;  // OutOfMemoryError is already pending
     env->SetIntArrayRegion(result, 0, 4, mode);
     return result;
 }

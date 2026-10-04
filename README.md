@@ -67,7 +67,7 @@ The API is deliberately small:
 | --- | --- |
 | `UsbManager.uvcDevices()` / `UsbDevice.isUvc` | Find attached UVC cameras |
 | `UvcCamera.open(fd)` | Open a camera from the file descriptor of a `UsbDeviceConnection` |
-| `UvcCamera.supportedModes()` | List the camera's modes as `StreamMode(format, width, height, fps)` |
+| `UvcCamera.supportedModes()` | List the camera's renderable modes (MJPEG and YUYV) as `StreamMode(format, width, height, fps)` |
 | `UvcCamera.start(surface, width, height, fps, preferredFormat)` or `start(surface, mode)` | Stream to a `Surface`; returns the `StreamMode` actually negotiated |
 | `UvcCamera.stop()` / `close()` | Stop streaming / release the camera |
 
@@ -93,7 +93,8 @@ connection.close()
 
 Notes:
 
-- `start` picks the closest mode the camera supports to the requested size and rate, trying `preferredFormat` first if you pass one (default order MJPEG, YUYV, anything else). Use the returned `StreamMode` (which carries the real size, frame rate and pixel format) to set your preview's aspect ratio. Sizes and modes are plain data classes (`StreamMode`, `PixelFormat`) rather than `android.util.Size`, which keeps the logic unit-testable on the JVM. The example app lists `supportedModes()` in a mode picker under the preview.
+- `start` picks the closest mode the camera supports to the requested size and rate, trying `preferredFormat` first if you pass one (default order MJPEG, YUYV, anything else). Use the returned `StreamMode` (which carries the real size, frame rate and pixel format) to set your preview's aspect ratio. Sizes and modes are plain data classes (`StreamMode`, `StreamFormat`) rather than `android.util.Size`, which keeps the logic unit-testable on the JVM. Formats the library cannot render (NV12, H.264, ...) are left out of `supportedModes()`, and asking `start` for `StreamFormat.OTHER` throws `IllegalArgumentException`. The example app lists `supportedModes()` in a mode picker under the preview.
+- API change since the first commits: `start` returns a `StreamMode` (format, size and frame rate) instead of a `StreamSize`, which was never released.
 - Use a `TextureView` (or a surface you know is valid). A `SurfaceView` inside Jetpack Compose did not reliably receive its surface on some devices.
 - `UvcCamera.start` negotiates the stream and can take up to a second: call it off the main thread. `stop`/`close` are synchronized with `start`, so calling `stop` from your surface-destroyed callback safely waits for a start in flight.
 - The example app's `ui/camera/` package shows the full flow as small composables, including releasing the camera when the app is backgrounded.

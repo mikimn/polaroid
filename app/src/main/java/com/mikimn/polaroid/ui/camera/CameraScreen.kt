@@ -51,7 +51,6 @@ private fun DevicePreview(device: UsbDevice) {
         is CameraState.Ready -> {
             // The preview stays composed on error so the SurfaceView (and its lifecycle) is unaffected.
             var error by remember(state) { mutableStateOf<String?>(null) }
-            val modes = remember(state.camera) { state.camera.supportedModes() }
             var requested by remember(state.camera) { mutableStateOf<StreamMode?>(null) }
             Column(horizontalAlignment = Alignment.CenterHorizontally) {
                 CameraPreview(
@@ -60,7 +59,7 @@ private fun DevicePreview(device: UsbDevice) {
                     requestedMode = requested,
                     onError = { error = it.message ?: "Could not start preview" },
                 )
-                ModePicker(modes = modes, selected = requested, onSelect = { requested = it; error = null })
+                ModePicker(modes = state.modes, selected = requested, onSelect = { requested = it; error = null })
                 error?.let { Message(it) }
             }
         }
