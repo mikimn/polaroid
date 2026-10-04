@@ -18,6 +18,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
+import kotlin.math.roundToInt
 import com.mikimn.libpolaroid.ControlId
 
 /**
@@ -49,7 +50,7 @@ private fun ControlRow(id: ControlId, state: ControlsState) {
         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
             Text(id.label(), Modifier.weight(1f), style = MaterialTheme.typography.bodyMedium)
             Text(formatValue(id, value), style = MaterialTheme.typography.bodyMedium)
-            TextButton(onClick = { state.reset(id) }) { Text("Reset") }
+            TextButton(onClick = { state.reset(id) }, enabled = editable) { Text("Reset") }
         }
         val range = state.ranges[id]
         val modes = state.options[id]
@@ -83,7 +84,8 @@ private fun ControlRow(id: ControlId, state: ControlsState) {
 
 private val switches = setOf(ControlId.AUTO_FOCUS, ControlId.AUTO_WHITE_BALANCE)
 
-private fun snap(raw: Float, min: Int, step: Int, max: Int): Int {
+/** Rounds a slider position to the nearest multiple of the control's step (counted from its minimum). */
+internal fun snap(raw: Float, min: Int, step: Int, max: Int): Int {
     val s = step.coerceAtLeast(1)
-    return (min + ((raw.toInt() - min) / s) * s).coerceIn(min, max)
+    return (min + ((raw - min) / s).roundToInt() * s).coerceIn(min, max)
 }
