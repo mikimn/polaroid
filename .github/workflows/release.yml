@@ -53,8 +53,8 @@ jobs:
       - name: Test
         run: ./gradlew test lint :libpolaroid:nativeTest --stacktrace
 
-      - name: Build the library AAR
-        run: ./gradlew :libpolaroid:assembleRelease --stacktrace
+      - name: Build the library AARs
+        run: ./gradlew :libpolaroid:assembleRelease :libpolaroid-compose:assembleRelease --stacktrace
 
       - name: Decode the release keystore
         id: keystore
@@ -84,6 +84,7 @@ jobs:
             cp app/build/outputs/apk/debug/app-debug.apk "polaroid-$VERSION-debug.apk"
           fi
           cp libpolaroid/build/outputs/aar/libpolaroid-release.aar "libpolaroid-$VERSION.aar"
+          cp libpolaroid-compose/build/outputs/aar/libpolaroid-compose-release.aar "libpolaroid-compose-$VERSION.aar"
 
       # The GitHub Release is created as a draft first and published last. Maven Central cannot be
       # undone or re-run for a version, so everything that can fail cheaply happens before it, and
@@ -122,7 +123,7 @@ jobs:
             echo "libpolaroid $VERSION is already on Maven Central; skipping."
             exit 0
           fi
-          ./gradlew :libpolaroid:publishAndReleaseToMavenCentral --stacktrace
+          ./gradlew :libpolaroid:publishAndReleaseToMavenCentral :libpolaroid-compose:publishAndReleaseToMavenCentral --stacktrace
 
       - name: Publish the GitHub Release
         env:
