@@ -151,7 +151,7 @@ Notes:
 
 ## Example Application
 
-The `:app` module is a Jetpack Compose app that shows a live preview of the first connected UVC camera.
+The `:app` module is a Jetpack Compose app that shows a live preview of the first connected UVC camera. It depends on `:libpolaroid-compose` exactly like a third-party app would (it contains only screen-level UI, no USB or camera plumbing), so `app/src/main/java/com/mikimn/polaroid/ui/camera/CameraScreen.kt` doubles as an integration reference matching the example in [Jetpack Compose](#jetpack-compose).
 
 ```bash
 git clone --recurse-submodules https://github.com/mikimn/polaroid.git

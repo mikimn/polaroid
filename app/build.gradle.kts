@@ -64,10 +64,10 @@ android {
 }
 
 dependencies {
-    implementation(project(":libpolaroid"))
+    // The Compose helpers (and, through them, the camera API) come from the SDK modules like in any other app.
+    implementation(project(":libpolaroid-compose"))
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.lifecycle.runtime.ktx)
-    implementation(libs.androidx.lifecycle.runtime.compose)
     implementation(libs.androidx.activity.compose)
     implementation(platform(libs.androidx.compose.bom))
     implementation(libs.androidx.compose.ui)
