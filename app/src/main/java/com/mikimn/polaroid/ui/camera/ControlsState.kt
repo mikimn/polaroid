@@ -140,12 +140,21 @@ internal class ControlsState(
         }
     }
 
+    private var pinchStartZoom: Int? = null
+    private var pinchAccumulatedScale = 1f
+
+    fun startPinch() {
+        pinchStartZoom = values[ControlId.ZOOM]
+        pinchAccumulatedScale = 1f
+    }
+
     /** Maps a pinch gesture onto the zoom control, if the camera has one. */
     fun pinchZoom(zoomFactor: Float) {
         val range = ranges[ControlId.ZOOM] ?: return
-        val current = values[ControlId.ZOOM] ?: return
-        val next = pinchedZoom(current, range, zoomFactor)
-        if (next != current) set(ControlId.ZOOM, next)
+        val start = pinchStartZoom ?: (values[ControlId.ZOOM] ?: return)
+        pinchAccumulatedScale *= zoomFactor
+        val next = pinchedZoom(start, range, pinchAccumulatedScale)
+        if (next != values[ControlId.ZOOM]) set(ControlId.ZOOM, next)
     }
 
     /** Restores the device default of [id]. Manual controls are only resettable while their auto mode is off. */

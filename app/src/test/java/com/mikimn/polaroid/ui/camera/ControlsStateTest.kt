@@ -155,4 +155,20 @@ class ControlsStateTest {
         assertTrue(ControlId.AUTO_WHITE_BALANCE.isAutoControl())
         assertFalse(ControlId.ZOOM.isAutoControl())
     }
+
+    @Test
+    fun `pinch gesture accumulates scale across frames and updates zoom`() = runTest {
+        port(ControlId.ZOOM, current = 100, range = ControlRange(100, 500, 10, 100))
+        val state = state()
+        state.load()
+        state.startPinch()
+        // Small incremental zoom events across 5 frames (+1 % each)
+        repeat(5) {
+            state.pinchZoom(1.01f)
+        }
+        testScheduler.advanceUntilIdle()
+        // Accumulated scale is ~1.051f (+5.1 % of 400 span = +20.4 -> 120)
+        assertEquals(120, state.values[ControlId.ZOOM])
+        assertEquals("write ZOOM=120", log.last())
+    }
 }

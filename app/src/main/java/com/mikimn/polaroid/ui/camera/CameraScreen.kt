@@ -45,6 +45,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import com.mikimn.libpolaroid.StreamMode
@@ -183,8 +184,14 @@ private fun CameraContent(state: UvcCameraState.Ready) {
                 verticalArrangement = Arrangement.Center,
             ) {
                 // Pinch to zoom is mapped onto the camera's zoom control, when it has one.
-                // Only two-finger gestures are taken: a single finger still scrolls the surrounding column.
-                Box(Modifier.pointerInput(controls) { detectPinch { zoom -> controls?.pinchZoom(zoom) } }) {
+                Box(
+                    Modifier.pointerInput(controls) {
+                        detectPinch(
+                            onGestureStart = { controls?.startPinch() },
+                            onZoom = { zoom -> controls?.pinchZoom(zoom) },
+                        )
+                    }
+                ) {
                     UvcCameraPreview(
                         camera = state.camera,
                         modifier = Modifier.fillMaxWidth(),
@@ -202,8 +209,8 @@ private fun CameraContent(state: UvcCameraState.Ready) {
                 val activeMode = requested ?: state.modes.firstOrNull()
                 activeMode?.let { mode ->
                     Text(
-                        text = "Resolution & format: ${mode.width}×${mode.height} (${mode.format}, ${mode.fps} fps)",
-                        style = MaterialTheme.typography.bodyMedium,
+                        text = "${mode.width}×${mode.height} (${mode.format}, ${mode.fps} fps)",
+                        style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Bold),
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         modifier = Modifier.padding(top = 16.dp, start = 16.dp, end = 16.dp),
                         textAlign = TextAlign.Center,
