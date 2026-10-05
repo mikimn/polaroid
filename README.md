@@ -9,29 +9,39 @@ This library enables working with UVC cameras on Android. It is based on `libuvc
 
 ## Getting Started
 
-Polaroid is an Android library (`:libpolaroid`) that opens a USB Video Class camera and streams its frames to a `Surface`. It is not published to a Maven repository yet, so add it to your project as a module.
+Polaroid is an Android library that allow opening a USB Video Class camera and streaming its frames to a `Surface`.
 
 ### Requirements
 
-- Android `minSdk 24`, arm64-v8a or x86_64 device (USB host support required)
+- Android `minSdk 24`
+- `arm64-v8a` or `x86_64` device (USB host support required)
 - JDK 17, Android SDK 35, NDK `30.0.16248370` and CMake `3.22.1` (installable from the SDK Manager)
-- The library is built with Kotlin 1.9, so consuming projects need Kotlin 1.8 or newer to read its metadata. Its only runtime dependency is the Kotlin standard library.
+- Kotlin 1.8 or newer
 
 ### Add the library
 
-**From Maven Central** (once the first release is published, see [Releasing](#releasing)):
+#### From Maven Central
+In `settings.gradle(.kts) / build.gradle(.kts)` make sure you define:
 
 ```kotlin
-// settings.gradle(.kts) / build.gradle(.kts)
-repositories { mavenCentral() }
+repositories {
+   mavenCentral()
+}
+```
 
+And then in `app/build.gradle.kts`:
+
+```kotlin
 // app/build.gradle.kts
-dependencies { implementation("io.github.mikimn:libpolaroid:0.1.0") }
+dependencies {
+   implementation("io.github.mikimn:libpolaroid:0.2.0")
+}
 ```
 
 The AAR bundles the native libraries for `arm64-v8a` and `x86_64`.
 
-**From source** (e.g. to try unreleased changes): either run `./gradlew :libpolaroid:publishToMavenLocal` and add `mavenLocal()` to your repositories, or include the module directly:
+#### From source 
+include the module directly:
 
 1. Add this repository as a git submodule (or copy it) and include the module in `settings.gradle`:
 
@@ -65,7 +75,9 @@ Declare USB host support and the camera permission in your `AndroidManifest.xml`
 Compose apps can use the `libpolaroid-compose` module, which brings the camera plumbing as small composables and state holders (it depends on `libpolaroid` via `api`, so you only add this one):
 
 ```kotlin
-dependencies { implementation("io.github.mikimn:libpolaroid-compose:0.1.0") } // or project(":libpolaroid-compose")
+dependencies {
+   implementation("io.github.mikimn:libpolaroid-compose:0.2.0")
+} // or project(":libpolaroid-compose"), if including a local copy
 ```
 
 ```kotlin
@@ -88,6 +100,7 @@ fun CameraScreen() {
 ```
 
 `UvcCameraPreview(camera, modifier, requestedMode, onError)` streams while its `TextureView` exists and sizes itself to the stream's aspect ratio; pass a `StreamMode` from `UvcCameraState.Ready.modes` as `requestedMode` to switch modes. The module declares the `CAMERA` permission and the optional USB-host feature in its manifest, so they **merge into your app's manifest** (apps that review their permissions will see `CAMERA`; Android requires it to open UVC devices), and its public API is explicit (`explicitApi()`). It builds against Compose BOM 2024.09 and needs `compileSdk` 34+.
+
 ### Camera controls
 
 `camera.controls` exposes what the connected device supports, discovered from the camera's own capability bitmaps, so an unsupported control is `null` rather than an error at call time. It works before and during streaming.
@@ -175,10 +188,6 @@ sdk.dir=/path/to/Android/sdk
 ```
 
 Plug the camera in, open the app and tap **Allow camera access**, accepting the camera permission and the USB permission dialogs. The preview appears once access is granted.
-
-### Development builds
-
-Every CI run (pull requests and pushes to `main`) uploads the example app as a `polaroid-debug-<commit sha>` artifact (kept for 14 days): open the run under the repository's **Actions** tab and download it from the *Artifacts* section, unzip, then `adb install app-debug.apk`. These are debug-signed with the CI runner's throwaway debug key, so you must uninstall a previous development build before installing one from another run.
 
 ## Contributing
 
