@@ -33,6 +33,7 @@ public fun UvcCameraPreview(
     modifier: Modifier = Modifier,
     requestedMode: StreamMode? = null,
     onError: (failed: StreamMode?, error: Exception) -> Unit = { _, _ -> },
+    onTextureViewCreated: ((TextureView) -> Unit)? = null,
 ): Unit {
     val currentOnError by rememberUpdatedState(onError)
     // Until the stream size is known, assume 16:9; afterwards match the camera so the image is not stretched.
@@ -51,6 +52,7 @@ public fun UvcCameraPreview(
                     )
                     view.tag = controller
                     view.surfaceTextureListener = controller
+                    onTextureViewCreated?.invoke(view)
                 }
             },
             update = { view -> (view.tag as PreviewController).setMode(requestedMode) },
