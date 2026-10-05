@@ -108,13 +108,21 @@ private fun CameraContent(state: UvcCameraState.Ready) {
                     },
                 )
             }
-            ModePicker(modes = state.modes, selected = requested, onSelect = { requested = it; error = null })
             error?.let { Message(it) }
             Row {
                 TextButton(onClick = { showControls = !showControls }) { Text(if (showControls) "Hide controls" else "Controls") }
                 TextButton(onClick = { showInfo = true }) { Text("Camera info") }
             }
-            if (showControls) controls?.let { ControlsPanel(it) }
+            if (showControls) {
+                controls?.let {
+                    ControlsPanel(
+                        modes = state.modes,
+                        selectedMode = requested,
+                        onSelectMode = { requested = it; error = null },
+                        state = it,
+                    )
+                }
+            }
         }
         SnackbarHost(snackbar, Modifier.align(Alignment.BottomCenter))
         if (showInfo) CameraInfoDialog(state.camera, onDismiss = { showInfo = false })
