@@ -15,6 +15,7 @@ import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.Button
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
@@ -33,6 +34,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import com.mikimn.libpolaroid.StreamMode
 import com.mikimn.libpolaroid.compose.UvcCameraPreview
@@ -127,6 +129,7 @@ private fun CameraContent(state: UvcCameraState.Ready) {
                     .fillMaxSize()
                     .verticalScroll(rememberScrollState()),
                 horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.Center,
             ) {
                 // Pinch to zoom is mapped onto the camera's zoom control, when it has one.
                 // Only two-finger gestures are taken: a single finger still scrolls the surrounding column.
@@ -142,6 +145,16 @@ private fun CameraContent(state: UvcCameraState.Ready) {
                                 error = it.message
                             }
                         },
+                    )
+                }
+                val activeMode = requested ?: state.modes.firstOrNull()
+                activeMode?.let { mode ->
+                    Text(
+                        text = "Resolution & format: ${mode.width}×${mode.height} (${mode.format}, ${mode.fps} fps)",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.padding(top = 16.dp, start = 16.dp, end = 16.dp),
+                        textAlign = TextAlign.Center,
                     )
                 }
                 error?.let { Message(it) }
