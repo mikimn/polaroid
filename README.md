@@ -196,10 +196,10 @@ Contributions are welcome. Please open an issue to discuss larger changes first.
 
 The version lives in one place, `VERSION_NAME` in `gradle.properties`; it is used for the library publication and for the example app's `versionName`/`versionCode` (`MAJOR*10000 + MINOR*100 + PATCH`).
 
-To cut a release:
+To cut a release, first set `VERSION_NAME=X.Y.Z` in `gradle.properties` and merge it to `main`, then either:
 
-1. Set `VERSION_NAME=X.Y.Z` in `gradle.properties` and merge it to `main`.
-2. Tag and push: `git tag vX.Y.Z && git push origin vX.Y.Z`.
+- **From GitHub (no tag needed):** Actions → **Release** → *Run workflow*, on the `main` branch. The tag `vX.Y.Z` is taken from `VERSION_NAME` and created on that commit when the release is published. With **"Publish" unchecked** (the default) it only builds, tests and creates or updates a **draft** GitHub Release with the AARs and APK so you can inspect them; run it again with **"Publish" checked** to publish to Maven Central (irreversible) and publish the release. The manual run refuses to start off `main` or when `vX.Y.Z` already points at another commit.
+- **From a terminal:** tag and push, `git tag vX.Y.Z && git push origin vX.Y.Z`; a tag push always publishes.
 
 The `Release` workflow (`.github/workflows/release.yml`) then checks that the tag matches `VERSION_NAME` and points at a commit on `main`, runs the tests and lint, builds the library AAR and the example APK, creates a **draft** GitHub Release with generated notes and the AAR and APK attached, publishes to Maven Central, and only then publishes the release (versions containing `-` are marked pre-release). Maven Central cannot be undone or re-run for a version, so it runs last, and every step is safe to re-run after a failure (an already-published version is skipped). If only some of the four Central secrets are set the run fails instead of silently skipping publication; with none set it skips with a warning. Release notes are generated from merged PRs, so there is no separate changelog file.
 

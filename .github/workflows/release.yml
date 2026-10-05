@@ -1,13 +1,21 @@
 name: Release
 
-# Push a tag like v0.1.0 (it must match VERSION_NAME in gradle.properties and point at a commit on
-# main) to build, publish and release.
+# Two ways to run it:
+#  - Push a tag like v0.1.0 (it must match VERSION_NAME in gradle.properties and point at a commit on main):
+#    builds, publishes to Maven Central and publishes the GitHub Release.
+#  - Run it by hand from the Actions tab on the main branch ("Run workflow"): the tag is taken from VERSION_NAME.
+#    With "publish" unchecked (the default) it only builds, tests and creates/updates a DRAFT GitHub Release with
+#    the artifacts so you can inspect them; with "publish" checked it also publishes to Maven Central (irreversible)
+#    and publishes the release, creating the v<VERSION_NAME> tag on the commit it ran on.
 on:
   push:
     tags: ['v*']
-
-env:
-  TAG: ${{ github.ref_name }}
+  workflow_dispatch:
+    inputs:
+      publish:
+        description: Publish to Maven Central (irreversible) and publish the GitHub Release
+        type: boolean
+        default: false
 
 jobs:
   release:
@@ -23,19 +31,43 @@ jobs:
           fetch-depth: 0
           persist-credentials: false # keep the write token away from the Gradle build
 
-      - name: Check the tag
+      - name: Check the tag and decide what to do
+        env:
+          PUBLISH_INPUT: ${{ inputs.publish }}
         run: |
           version=$(grep '^VERSION_NAME=' gradle.properties | cut -d= -f2)
-          if [ "v$version" != "$TAG" ]; then
-            echo "Tag $TAG does not match VERSION_NAME=$version in gradle.properties" >&2
-            exit 1
-          fi
           git fetch --no-tags origin main
-          if ! git merge-base --is-ancestor "$GITHUB_SHA" origin/main; then
-            echo "Tag $TAG is not on a commit reachable from main" >&2
-            exit 1
+          if [ "$GITHUB_REF_TYPE" = "tag" ]; then
+            TAG="$GITHUB_REF_NAME"
+            PUBLISH=true
+            if [ "v$version" != "$TAG" ]; then
+              echo "Tag $TAG does not match VERSION_NAME=$version in gradle.properties" >&2
+              exit 1
+            fi
+            if ! git merge-base --is-ancestor "$GITHUB_SHA" origin/main; then
+              echo "Tag $TAG is not on a commit reachable from main" >&2
+              exit 1
+            fi
+          else
+            # Manual run: only from main, and never onto a tag that already points somewhere else.
+            if [ "$GITHUB_REF" != "refs/heads/main" ]; then
+              echo "Run this workflow on the main branch (it was run on $GITHUB_REF)" >&2
+              exit 1
+            fi
+            TAG="v$version"
+            PUBLISH="${PUBLISH_INPUT:-false}"
+            existing=$(git ls-remote --tags origin "refs/tags/$TAG^{}" "refs/tags/$TAG" | tail -1 | cut -f1)
+            if [ -n "$existing" ] && [ "$existing" != "$GITHUB_SHA" ]; then
+              echo "Tag $TAG already exists on another commit ($existing); bump VERSION_NAME first" >&2
+              exit 1
+            fi
           fi
-          echo "VERSION=$version" >> "$GITHUB_ENV"
+          echo "Releasing $TAG (version $version), publish=$PUBLISH"
+          {
+            echo "TAG=$TAG"
+            echo "VERSION=$version"
+            echo "PUBLISH=$PUBLISH"
+          } >> "$GITHUB_ENV"
 
       - uses: actions/setup-java@v6
         with:
@@ -95,11 +127,13 @@ jobs:
         run: |
           prerelease=""
           case "$VERSION" in *-*) prerelease="--prerelease" ;; esac
+          # --target only matters when the tag does not exist yet (manual runs): it is created on this commit
           gh release view "$TAG" > /dev/null 2>&1 \
-            || gh release create "$TAG" --draft --generate-notes --title "Polaroid $TAG" $prerelease
+            || gh release create "$TAG" --draft --generate-notes --title "Polaroid $TAG" --target "$GITHUB_SHA" $prerelease
           gh release upload "$TAG" --clobber libpolaroid-*.aar polaroid-*.apk
 
       - name: Publish to Maven Central
+        if: env.PUBLISH == 'true'
         env:
           ORG_GRADLE_PROJECT_mavenCentralUsername: ${{ secrets.MAVEN_CENTRAL_USERNAME }}
           ORG_GRADLE_PROJECT_mavenCentralPassword: ${{ secrets.MAVEN_CENTRAL_PASSWORD }}
@@ -130,6 +164,7 @@ jobs:
           done
 
       - name: Publish the GitHub Release
+        if: env.PUBLISH == 'true'
         env:
           GH_TOKEN: ${{ github.token }}
         run: gh release edit "$TAG" --draft=false
