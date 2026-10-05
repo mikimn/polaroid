@@ -230,7 +230,7 @@ AI-generated changes are reviewed by the maintainer and verified by building and
 
 ## License
 
-Polaroid is licensed under the [Apache License 2.0](LICENSE).
+Polaroid is licensed under the [Apache License 2.0](https://github.com/mikimn/polaroid/blob/main/LICENSE).
 
 It bundles third-party libraries as git submodules that are under their own licenses:
 
