@@ -36,7 +36,9 @@ jobs:
           PUBLISH_INPUT: ${{ inputs.publish }}
         run: |
           version=$(grep '^VERSION_NAME=' gradle.properties | cut -d= -f2)
-          git fetch --no-tags origin main
+          # No `git fetch`/`git ls-remote` here: the checkout deliberately keeps no credentials (persist-credentials:
+          # false) and this repository is private, so network git commands fail. fetch-depth: 0 already brought in
+          # every branch (origin/main) and tag.
           if [ "$GITHUB_REF_TYPE" = "tag" ]; then
             TAG="$GITHUB_REF_NAME"
             PUBLISH=true
@@ -56,7 +58,7 @@ jobs:
             fi
             TAG="v$version"
             PUBLISH="${PUBLISH_INPUT:-false}"
-            existing=$(git ls-remote --tags origin "refs/tags/$TAG^{}" "refs/tags/$TAG" | tail -1 | cut -f1)
+            existing=$(git rev-parse -q --verify "refs/tags/$TAG^{commit}" || true)
             if [ -n "$existing" ] && [ "$existing" != "$GITHUB_SHA" ]; then
               echo "Tag $TAG already exists on another commit ($existing); bump VERSION_NAME first" >&2
               exit 1

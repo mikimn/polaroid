@@ -1,12 +1,13 @@
 package com.mikimn.polaroid.ui.camera
 
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
@@ -20,16 +21,33 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import kotlin.math.roundToInt
 import com.mikimn.libpolaroid.ControlId
+import com.mikimn.libpolaroid.StreamMode
 
 /**
- * Lists every control the camera supports (nothing is hard-coded): sliders for ranged controls using the device's
- * min/max/step, a switch for auto modes, buttons for the auto-exposure modes the device offers, with the current
- * value, a per-control reset and "Reset all". A manual control is disabled while its auto mode owns it.
+ * Lists every control the camera supports (nothing is hard-coded): dropdown for resolution & format selection,
+ * sliders for ranged controls using the device's min/max/step, a switch for auto modes, buttons for the
+ * auto-exposure modes the device offers, with the current value, a per-control reset and "Reset all".
+ * A manual control is disabled while its auto mode owns it.
  */
 @Composable
-internal fun ControlsPanel(state: ControlsState, modifier: Modifier = Modifier) {
+internal fun ControlsPanel(
+    modes: List<StreamMode>,
+    selectedMode: StreamMode?,
+    onSelectMode: (StreamMode) -> Unit,
+    state: ControlsState,
+    modifier: Modifier = Modifier,
+) {
     val available = state.available.value
-    Column(modifier.padding(horizontal = 16.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+    Column(
+        modifier = modifier
+            .verticalScroll(rememberScrollState())
+            .padding(horizontal = 16.dp)
+            .padding(bottom = 32.dp),
+        verticalArrangement = Arrangement.spacedBy(4.dp)
+    ) {
+        if (modes.isNotEmpty()) {
+            ModePicker(modes = modes, selected = selectedMode, onSelect = onSelectMode)
+        }
         if (available.isEmpty()) {
             Text("This camera does not report any adjustable controls.", style = MaterialTheme.typography.bodyMedium)
             return@Column

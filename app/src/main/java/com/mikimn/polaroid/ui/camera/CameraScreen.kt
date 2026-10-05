@@ -2,26 +2,33 @@ package com.mikimn.polaroid.ui.camera
 
 import android.hardware.usb.UsbDevice
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Info
+import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.Button
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.Icon
+import androidx.compose.material3.ModalBottomSheet
+import androidx.compose.material3.NavigationBar
+import androidx.compose.material3.NavigationBarItem
+import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.rememberCoroutineScope
-import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -29,14 +36,14 @@ import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.unit.dp
 import com.mikimn.libpolaroid.StreamMode
 import com.mikimn.libpolaroid.compose.UvcCameraPreview
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
 import com.mikimn.libpolaroid.compose.UvcCameraState
 import com.mikimn.libpolaroid.compose.rememberIsStarted
 import com.mikimn.libpolaroid.compose.rememberUsbPermission
 import com.mikimn.libpolaroid.compose.rememberUvcCamera
 import com.mikimn.libpolaroid.compose.rememberUvcDevices
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 /** Shows a preview of the first attached UVC camera, guiding the user through connecting it. */
 @Composable
@@ -72,6 +79,7 @@ private fun DevicePreview(device: UsbDevice) {
 }
 
 /** The preview with its mode picker and (collapsible) controls panel, for an opened camera. */
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun CameraContent(state: UvcCameraState.Ready) {
     // The preview stays composed on error so the TextureView (and its lifecycle) is unaffected.
@@ -90,34 +98,70 @@ private fun CameraContent(state: UvcCameraState.Ready) {
             .also { it.load() }
     }
 
-    Box(Modifier.fillMaxSize()) {
-        Column(Modifier.verticalScroll(rememberScrollState()), horizontalAlignment = Alignment.CenterHorizontally) {
-            // Pinch to zoom is mapped onto the camera's zoom control, when it has one.
-            // Only two-finger gestures are taken: a single finger still scrolls the surrounding column.
-            Box(Modifier.pointerInput(controls) { detectPinch { zoom -> controls?.pinchZoom(zoom) } }) {
-                UvcCameraPreview(
-                    camera = state.camera,
-                    modifier = Modifier.fillMaxWidth(),
-                    requestedMode = requested,
-                    onError = { failed, e ->
-                        // Ignore failures of a mode the user has already moved on from.
-                        resolveStartFailure(failed, requested, e.message ?: "Could not start preview")?.let {
-                            requested = it.requested
-                            error = it.message
-                        }
-                    },
+    Scaffold(
+        bottomBar = {
+            NavigationBar {
+                NavigationBarItem(
+                    selected = showControls,
+                    onClick = { showControls = !showControls },
+                    icon = { Icon(Icons.Default.Settings, contentDescription = "Controls") },
+                    label = { Text("Controls") },
+                )
+                NavigationBarItem(
+                    selected = showInfo,
+                    onClick = { showInfo = true },
+                    icon = { Icon(Icons.Default.Info, contentDescription = "Camera info") },
+                    label = { Text("Camera info") },
                 )
             }
-            ModePicker(modes = state.modes, selected = requested, onSelect = { requested = it; error = null })
-            error?.let { Message(it) }
-            Row {
-                TextButton(onClick = { showControls = !showControls }) { Text(if (showControls) "Hide controls" else "Controls") }
-                TextButton(onClick = { showInfo = true }) { Text("Camera info") }
+        },
+        snackbarHost = { SnackbarHost(snackbar) },
+    ) { innerPadding ->
+        Box(
+            Modifier
+                .fillMaxSize()
+                .padding(innerPadding)
+        ) {
+            Column(
+                Modifier
+                    .fillMaxSize()
+                    .verticalScroll(rememberScrollState()),
+                horizontalAlignment = Alignment.CenterHorizontally,
+            ) {
+                // Pinch to zoom is mapped onto the camera's zoom control, when it has one.
+                // Only two-finger gestures are taken: a single finger still scrolls the surrounding column.
+                Box(Modifier.pointerInput(controls) { detectPinch { zoom -> controls?.pinchZoom(zoom) } }) {
+                    UvcCameraPreview(
+                        camera = state.camera,
+                        modifier = Modifier.fillMaxWidth(),
+                        requestedMode = requested,
+                        onError = { failed, e ->
+                            // Ignore failures of a mode the user has already moved on from.
+                            resolveStartFailure(failed, requested, e.message ?: "Could not start preview")?.let {
+                                requested = it.requested
+                                error = it.message
+                            }
+                        },
+                    )
+                }
+                error?.let { Message(it) }
             }
-            if (showControls) controls?.let { ControlsPanel(it) }
+            if (showControls) {
+                controls?.let {
+                    ModalBottomSheet(
+                        onDismissRequest = { showControls = false },
+                    ) {
+                        ControlsPanel(
+                            modes = state.modes,
+                            selectedMode = requested,
+                            onSelectMode = { requested = it; error = null },
+                            state = it,
+                        )
+                    }
+                }
+            }
+            if (showInfo) CameraInfoDialog(state.camera, onDismiss = { showInfo = false })
         }
-        SnackbarHost(snackbar, Modifier.align(Alignment.BottomCenter))
-        if (showInfo) CameraInfoDialog(state.camera, onDismiss = { showInfo = false })
     }
 }
 
