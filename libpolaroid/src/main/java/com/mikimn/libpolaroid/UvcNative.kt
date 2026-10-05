@@ -17,6 +17,12 @@ internal interface UvcNative {
     fun stop(handle: Long)
     fun close(handle: Long)
 
+    /** `{vendorId, productId, bcdUVC}`. */
+    fun deviceInfo(handle: Long): IntArray
+
+    /** `{manufacturer, product, serialNumber}`; entries the device does not provide are null. */
+    fun deviceStrings(handle: Long): Array<String?>
+
     /** `{cameraTerminalId, cameraControlsBitmap, processingUnitId, processingControlsBitmap}`. */
     fun controlInfo(handle: Long): IntArray
 
@@ -38,6 +44,8 @@ internal object NativeUvc : UvcNative {
     external override fun start(handle: Long, surface: Surface, width: Int, height: Int, fps: Int, preferredFormat: Int): IntArray
     external override fun stop(handle: Long)
     external override fun close(handle: Long)
+    external override fun deviceInfo(handle: Long): IntArray
+    external override fun deviceStrings(handle: Long): Array<String?>
     external override fun controlInfo(handle: Long): IntArray
     external override fun getControl(handle: Long, unit: Int, selector: Int, request: Int, length: Int): ByteArray
     external override fun setControl(handle: Long, unit: Int, selector: Int, data: ByteArray)

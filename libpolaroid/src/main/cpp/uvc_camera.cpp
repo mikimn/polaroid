@@ -341,6 +341,51 @@ Java_com_mikimn_libpolaroid_NativeUvc_setControl(JNIEnv *env, jobject, jlong han
     if (ret < 0) throwControlException(env, ret);
 }
 
+// Reads the device descriptor of the open device without reopening it; false if it cannot be read.
+bool readDeviceDescriptor(Camera *cam, libusb_device_handle **usb, libusb_device_descriptor *desc) {
+    *usb = uvc_get_libusb_handle(cam->devh);
+    libusb_device *device = *usb ? libusb_get_device(*usb) : nullptr;
+    return device != nullptr && libusb_get_device_descriptor(device, desc) == 0;
+}
+
+// Returns {vendorId, productId, bcdUVC}; the ids are -1 when the device descriptor cannot be read.
+JNIEXPORT jintArray JNICALL
+Java_com_mikimn_libpolaroid_NativeUvc_deviceInfo(JNIEnv *env, jobject, jlong handle) {
+    auto *cam = reinterpret_cast<Camera *>(handle);
+    libusb_device_handle *usb = nullptr;
+    libusb_device_descriptor desc{};
+    const bool ok = readDeviceDescriptor(cam, &usb, &desc);
+    const jint info[3] = {ok ? desc.idVendor : -1, ok ? desc.idProduct : -1, cam->devh->info->ctrl_if.bcdUVC};
+    jintArray result = env->NewIntArray(3);
+    if (result == nullptr) return nullptr;  // OutOfMemoryError is already pending
+    env->SetIntArrayRegion(result, 0, 3, info);
+    return result;
+}
+
+// Returns {manufacturer, product, serialNumber}; a string the device does not provide (or that cannot be read
+// over the already-open handle) is null.
+JNIEXPORT jobjectArray JNICALL
+Java_com_mikimn_libpolaroid_NativeUvc_deviceStrings(JNIEnv *env, jobject, jlong handle) {
+    auto *cam = reinterpret_cast<Camera *>(handle);
+    libusb_device_handle *usb = nullptr;
+    libusb_device_descriptor desc{};
+    const bool ok = readDeviceDescriptor(cam, &usb, &desc);
+    const uint8_t indexes[3] = {desc.iManufacturer, desc.iProduct, desc.iSerialNumber};
+    jclass stringClass = env->FindClass("java/lang/String");
+    if (stringClass == nullptr) return nullptr;
+    jobjectArray result = env->NewObjectArray(3, stringClass, nullptr);
+    if (result == nullptr) return nullptr;
+    for (int i = 0; ok && i < 3; i++) {
+        unsigned char buf[256];
+        if (indexes[i] != 0 && libusb_get_string_descriptor_ascii(usb, indexes[i], buf, sizeof(buf)) > 0) {
+            jstring text = env->NewStringUTF(reinterpret_cast<const char *>(buf));
+            env->SetObjectArrayElement(result, i, text);
+            env->DeleteLocalRef(text);
+        }
+    }
+    return result;
+}
+
 JNIEXPORT void JNICALL
 Java_com_mikimn_libpolaroid_NativeUvc_stop(JNIEnv *, jobject, jlong handle) {
     auto *cam = reinterpret_cast<Camera *>(handle);
