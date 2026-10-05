@@ -151,7 +151,7 @@ Notes:
 
 ## Example Application
 
-The `:app` module is a Jetpack Compose app that shows a live preview of the first connected UVC camera. It depends on `:libpolaroid-compose` exactly like a third-party app would (it contains only screen-level UI, no USB or camera plumbing), so `app/src/main/java/com/mikimn/polaroid/ui/camera/CameraScreen.kt` doubles as an integration reference matching the example in [Jetpack Compose](#jetpack-compose).
+The `:app` module is a Jetpack Compose app that shows a live preview of the first connected UVC camera. It depends on `:libpolaroid-compose` exactly like a third-party app would (it contains only screen-level UI, no USB or camera plumbing), so `app/src/main/java/com/mikimn/polaroid/ui/camera/CameraScreen.kt` doubles as an integration reference matching the example in [Jetpack Compose](#jetpack-compose). Besides the preview and the mode picker it has a **Controls** panel built from what the connected camera reports: sliders for zoom, exposure, focus, brightness, ... using the device's own ranges, switches for the auto modes (the matching manual slider is disabled while auto is on), a reset per control and "Reset all", and pinch-to-zoom on the preview when the camera has a zoom control.
 
 ```bash
 git clone --recurse-submodules https://github.com/mikimn/polaroid.git
