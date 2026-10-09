@@ -2,8 +2,8 @@
 <project version="4">
   <component name="VcsDirectoryMappings">
     <mapping directory="$PROJECT_DIR$" vcs="Git" />
-    <mapping directory="$PROJECT_DIR$/libpolaroid/src/main/cpp/third_party/libjpeg-turbo" vcs="Git" />
-    <mapping directory="$PROJECT_DIR$/libpolaroid/src/main/cpp/third_party/libusb" vcs="Git" />
-    <mapping directory="$PROJECT_DIR$/libpolaroid/src/main/cpp/third_party/libuvc" vcs="Git" />
+    <mapping directory="$PROJECT_DIR$/droiduvc/src/main/cpp/third_party/libjpeg-turbo" vcs="Git" />
+    <mapping directory="$PROJECT_DIR$/droiduvc/src/main/cpp/third_party/libusb" vcs="Git" />
+    <mapping directory="$PROJECT_DIR$/droiduvc/src/main/cpp/third_party/libuvc" vcs="Git" />
   </component>
 </project>

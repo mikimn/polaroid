@@ -1,0 +1,52 @@
+package com.mikimn.droiduvc
+
+import android.view.Surface
+
+/**
+ * The native (JNI) operations behind [UvcCamera]. Extracted as an interface so the Kotlin
+ * lifecycle logic can be unit tested on the JVM with a fake.
+ *
+ * Every function throws [java.io.IOException] on failure. Modes are exchanged as `IntArray`s of
+ * `{format, width, height, fps}` (format codes are those of [StreamFormat]); [listModes] returns
+ * several concatenated, [start] returns the one negotiated.
+ */
+internal interface UvcNative {
+    fun open(fileDescriptor: Int): Long
+    fun listModes(handle: Long): IntArray
+    fun start(handle: Long, surface: Surface, width: Int, height: Int, fps: Int, preferredFormat: Int): IntArray
+    fun stop(handle: Long)
+    fun close(handle: Long)
+
+    /** `{vendorId, productId, bcdUVC}`. */
+    fun deviceInfo(handle: Long): IntArray
+
+    /** `{manufacturer, product, serialNumber}`; entries the device does not provide are null. */
+    fun deviceStrings(handle: Long): Array<String?>
+
+    /** `{cameraTerminalId, cameraControlsBitmap, processingUnitId, processingControlsBitmap}`. */
+    fun controlInfo(handle: Long): IntArray
+
+    /** Reads a control with the given UVC request code; throws [ControlException] when the transfer fails. */
+    fun getControl(handle: Long, unit: Int, selector: Int, request: Int, length: Int): ByteArray
+
+    /** Writes a control (SET_CUR); throws [ControlException] when the transfer fails. */
+    fun setControl(handle: Long, unit: Int, selector: Int, data: ByteArray)
+}
+
+/** JNI implementation, see `uvc_camera.cpp`. */
+internal object NativeUvc : UvcNative {
+    init {
+        System.loadLibrary("droiduvc")
+    }
+
+    external override fun open(fileDescriptor: Int): Long
+    external override fun listModes(handle: Long): IntArray
+    external override fun start(handle: Long, surface: Surface, width: Int, height: Int, fps: Int, preferredFormat: Int): IntArray
+    external override fun stop(handle: Long)
+    external override fun close(handle: Long)
+    external override fun deviceInfo(handle: Long): IntArray
+    external override fun deviceStrings(handle: Long): Array<String?>
+    external override fun controlInfo(handle: Long): IntArray
+    external override fun getControl(handle: Long, unit: Int, selector: Int, request: Int, length: Int): ByteArray
+    external override fun setControl(handle: Long, unit: Int, selector: Int, data: ByteArray)
+}

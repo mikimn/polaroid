@@ -78,17 +78,17 @@ jobs:
 
       - uses: gradle/actions/setup-gradle@v6
 
-      # Keep these in sync with ndkVersion / cmake version in libpolaroid/build.gradle
+      # Keep these in sync with ndkVersion / cmake version in droiduvc/build.gradle
       - name: Install NDK and CMake
         run: |
           yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --licenses > /dev/null || true
           "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" "ndk;30.0.16248370" "cmake;3.22.1"
 
       - name: Test
-        run: ./gradlew test lint :libpolaroid:nativeTest --stacktrace
+        run: ./gradlew test lint :droiduvc:nativeTest --stacktrace
 
       - name: Build the library AARs
-        run: ./gradlew :libpolaroid:assembleRelease :libpolaroid-compose:assembleRelease --stacktrace
+        run: ./gradlew :droiduvc:assembleRelease :droiduvc-compose:assembleRelease --stacktrace
 
       - name: Decode the release keystore
         id: keystore
@@ -112,13 +112,13 @@ jobs:
         run: |
           if [ "${{ steps.keystore.outputs.signed }}" = "true" ]; then
             ./gradlew :app:assembleRelease --stacktrace
-            cp app/build/outputs/apk/release/app-release.apk "polaroid-$VERSION.apk"
+            cp app/build/outputs/apk/release/app-release.apk "droiduvc-$VERSION.apk"
           else
             ./gradlew :app:assembleDebug --stacktrace
-            cp app/build/outputs/apk/debug/app-debug.apk "polaroid-$VERSION-debug.apk"
+            cp app/build/outputs/apk/debug/app-debug.apk "droiduvc-$VERSION-debug.apk"
           fi
-          cp libpolaroid/build/outputs/aar/libpolaroid-release.aar "libpolaroid-$VERSION.aar"
-          cp libpolaroid-compose/build/outputs/aar/libpolaroid-compose-release.aar "libpolaroid-compose-$VERSION.aar"
+          cp droiduvc/build/outputs/aar/droiduvc-release.aar "droiduvc-$VERSION.aar"
+          cp droiduvc-compose/build/outputs/aar/droiduvc-compose-release.aar "droiduvc-compose-$VERSION.aar"
 
       # The GitHub Release is created as a draft first and published last. Maven Central cannot be
       # undone or re-run for a version, so everything that can fail cheaply happens before it, and
@@ -131,8 +131,8 @@ jobs:
           case "$VERSION" in *-*) prerelease="--prerelease" ;; esac
           # --target only matters when the tag does not exist yet (manual runs): it is created on this commit
           gh release view "$TAG" > /dev/null 2>&1 \
-            || gh release create "$TAG" --draft --generate-notes --title "Polaroid $TAG" --target "$GITHUB_SHA" $prerelease
-          gh release upload "$TAG" --clobber libpolaroid-*.aar polaroid-*.apk
+            || gh release create "$TAG" --draft --generate-notes --title "Droid UVC $TAG" --target "$GITHUB_SHA" $prerelease
+          gh release upload "$TAG" --clobber droiduvc-*.aar droiduvc-*.apk
 
       - name: Publish to Maven Central
         if: env.PUBLISH == 'true'
@@ -155,9 +155,9 @@ jobs:
             echo "::error::Only $set of 4 Maven Central secrets are set (MAVEN_CENTRAL_USERNAME, MAVEN_CENTRAL_PASSWORD, SIGNING_KEY, SIGNING_KEY_PASSWORD); refusing to publish." >&2
             exit 1
           fi
-          # Each module is probed and published on its own, so a rerun after a partial failure (say libpolaroid
-          # went out and libpolaroid-compose failed validation) still publishes whatever is missing.
-          for module in libpolaroid libpolaroid-compose; do
+          # Each module is probed and published on its own, so a rerun after a partial failure (say droiduvc
+          # went out and droiduvc-compose failed validation) still publishes whatever is missing.
+          for module in droiduvc droiduvc-compose; do
             if curl -fsI "https://repo1.maven.org/maven2/io/github/mikimn/$module/$VERSION/$module-$VERSION.pom" > /dev/null; then
               echo "$module $VERSION is already on Maven Central; skipping."
             else

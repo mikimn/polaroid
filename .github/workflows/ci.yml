@@ -29,14 +29,14 @@ jobs:
 
       - uses: gradle/actions/setup-gradle@v6
 
-      # Keep these in sync with ndkVersion / cmake version in libpolaroid/build.gradle
+      # Keep these in sync with ndkVersion / cmake version in droiduvc/build.gradle
       - name: Install NDK and CMake
         run: |
           yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --licenses > /dev/null || true
           "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" "ndk;30.0.16248370" "cmake;3.22.1"
 
       - name: Test, lint and build
-        run: ./gradlew test lint :libpolaroid:nativeTest :libpolaroid-compose:assembleDebug :app:assembleDebug --stacktrace
+        run: ./gradlew test lint :droiduvc:nativeTest :droiduvc-compose:assembleDebug :app:assembleDebug --stacktrace
 
       - name: Verify third-party submodules are untouched
         run: git submodule foreach --recursive 'git diff --quiet && test -z "$(git status --porcelain)"'
@@ -44,7 +44,7 @@ jobs:
       - name: Upload development APK
         uses: actions/upload-artifact@v7
         with:
-          name: polaroid-debug-${{ github.event.pull_request.head.sha || github.sha }}
+          name: droiduvc-debug-${{ github.event.pull_request.head.sha || github.sha }}
           path: app/build/outputs/apk/debug/app-debug.apk
           if-no-files-found: error
           retention-days: 14

@@ -1,15 +1,15 @@
-# Polaroid
+# droiduvc
 
 [![CI](https://github.com/mikimn/polaroid/actions/workflows/ci.yml/badge.svg)](https://github.com/mikimn/polaroid/actions/workflows/ci.yml)
 
 This library enables working with UVC cameras on Android. It is based on `libuvc` and is heavily inspired by the [`UVCCamera`](https://github.com/saki4510t/UVCCamera) project.
 
-<img src="assets/icon-original.png" alt="Polaroid Logo" width="256" height="256">
+<img src="assets/icon-original.png" alt="Droid UVC Logo" width="256" height="256">
 
 
 ## Getting Started
 
-Polaroid is an Android library that allow opening a USB Video Class camera and streaming its frames to a `Surface`.
+`droiduvc` is an Android library that allow opening a USB Video Class camera and streaming its frames to a `Surface`.
 
 ### Requirements
 
@@ -34,7 +34,7 @@ And then in `app/build.gradle.kts`:
 ```kotlin
 // app/build.gradle.kts
 dependencies {
-   implementation("io.github.mikimn:libpolaroid:0.2.0")
+   implementation("io.github.mikimn:droiduvc:0.2.0")
 }
 ```
 
@@ -46,19 +46,19 @@ include the module directly:
 1. Add this repository as a git submodule (or copy it) and include the module in `settings.gradle`:
 
    ```bash
-   git submodule add https://github.com/mikimn/polaroid.git polaroid
+   git submodule add https://github.com/mikimn/polaroid.git droiduvc
    git submodule update --init --recursive
    ```
 
    ```groovy
-   include ':libpolaroid'
-   project(':libpolaroid').projectDir = new File('polaroid/libpolaroid')
+   include ':droiduvc'
+   project(':droiduvc').projectDir = new File('droiduvc/droiduvc')
    ```
 
 2. Depend on it from your app module:
 
    ```kotlin
-   implementation(project(":libpolaroid"))
+   implementation(project(":droiduvc"))
    ```
 
 ### Declare permissions
@@ -72,12 +72,12 @@ Declare USB host support and the camera permission in your `AndroidManifest.xml`
 
 ### Jetpack Compose
 
-Compose apps can use the `libpolaroid-compose` module, which brings the camera plumbing as small composables and state holders (it depends on `libpolaroid` via `api`, so you only add this one):
+Compose apps can use the `droiduvc-compose` module, which brings the camera plumbing as small composables and state holders (it depends on `droiduvc` via `api`, so you only add this one):
 
 ```kotlin
 dependencies {
-   implementation("io.github.mikimn:libpolaroid-compose:0.2.0")
-} // or project(":libpolaroid-compose"), if including a local copy
+   implementation("io.github.mikimn:droiduvc-compose:0.2.0")
+} // or project(":droiduvc-compose"), if including a local copy
 ```
 
 ```kotlin
@@ -165,7 +165,7 @@ Notes:
 
 ## Example Application
 
-The `:app` module is a Jetpack Compose app that shows a live preview of the first connected UVC camera. It depends on `:libpolaroid-compose` exactly like a third-party app would (it contains only screen-level UI, no USB or camera plumbing), so `app/src/main/java/com/mikimn/polaroid/ui/camera/CameraScreen.kt` doubles as an integration reference matching the example in [Jetpack Compose](#jetpack-compose). Besides the preview and the mode picker it has a **Controls** panel built from what the connected camera reports: sliders for zoom, exposure, focus, brightness, ... using the device's own ranges, switches for the auto modes (the matching manual slider is disabled while auto is on), a reset per control and "Reset all", and pinch-to-zoom on the preview when the camera has a zoom control. **Camera info** opens a plain-text report (device identity, UVC version, every stream mode, and every control with min/max/step/default/current, supported or not) that you can copy or share and paste into a bug report; its layout is fixed so two devices' reports diff cleanly, the serial number is masked to its last four characters so it is safe to paste publicly, and it works without streaming.
+The `:app` module is a Jetpack Compose app that shows a live preview of the first connected UVC camera. It depends on `:droiduvc-compose` exactly like a third-party app would (it contains only screen-level UI, no USB or camera plumbing), so `app/src/main/java/com/mikimn/droiduvc/app/ui/camera/CameraScreen.kt` doubles as an integration reference matching the example in [Jetpack Compose](#jetpack-compose). Besides the preview and the mode picker it has a **Controls** panel built from what the connected camera reports: sliders for zoom, exposure, focus, brightness, ... using the device's own ranges, switches for the auto modes (the matching manual slider is disabled while auto is on), a reset per control and "Reset all", and pinch-to-zoom on the preview when the camera has a zoom control. **Camera info** opens a plain-text report (device identity, UVC version, every stream mode, and every control with min/max/step/default/current, supported or not) that you can copy or share and paste into a bug report; its layout is fixed so two devices' reports diff cleanly, the serial number is masked to its last four characters so it is safe to paste publicly, and it works without streaming.
 
 ```bash
 git clone --recurse-submodules https://github.com/mikimn/polaroid.git
@@ -193,10 +193,10 @@ Plug the camera in, open the app and tap **Allow camera access**, accepting the 
 
 Contributions are welcome. Please open an issue to discuss larger changes first.
 
-- Build the example app (`./gradlew :app:assembleDebug`) and run the unit tests (`./gradlew test`) before opening a pull request. `:libpolaroid` also has instrumented tests that exercise the real JNI layer (no camera needed): `./gradlew :libpolaroid:connectedDebugAndroidTest` on a device or emulator. Test camera-related changes on a real device and camera if you can.
-- Third-party code lives in `libpolaroid/src/main/cpp/third_party/` as git submodules (`libusb`, `libuvc`, `libjpeg-turbo`). **Keep them pristine** so they can be updated; never edit files inside them. Build integration belongs in `libpolaroid/src/main/cpp/cmake/` and the top-level `CMakeLists.txt`.
-- Native C++ unit tests (GoogleTest, built for the host, no device needed): `./gradlew :libpolaroid:nativeTest`. Put new logic that does not need Android or libuvc in `libpolaroid/src/main/cpp/core/` so it can be tested. The first run downloads GoogleTest (pinned by hash), so `check` needs network access once.
-- CI (`.github/workflows/ci.yml`) runs `./gradlew test lint :libpolaroid:nativeTest :app:assembleDebug` on pushes to `main` and on pull requests, and fails if a third-party submodule was modified. Run the same command locally before opening a PR.
+- Build the example app (`./gradlew :app:assembleDebug`) and run the unit tests (`./gradlew test`) before opening a pull request. `:droiduvc` also has instrumented tests that exercise the real JNI layer (no camera needed): `./gradlew :droiduvc:connectedDebugAndroidTest` on a device or emulator. Test camera-related changes on a real device and camera if you can.
+- Third-party code lives in `droiduvc/src/main/cpp/third_party/` as git submodules (`libusb`, `libuvc`, `libjpeg-turbo`). **Keep them pristine** so they can be updated; never edit files inside them. Build integration belongs in `droiduvc/src/main/cpp/cmake/` and the top-level `CMakeLists.txt`.
+- Native C++ unit tests (GoogleTest, built for the host, no device needed): `./gradlew :droiduvc:nativeTest`. Put new logic that does not need Android or libuvc in `droiduvc/src/main/cpp/core/` so it can be tested. The first run downloads GoogleTest (pinned by hash), so `check` needs network access once.
+- CI (`.github/workflows/ci.yml`) runs `./gradlew test lint :droiduvc:nativeTest :app:assembleDebug` on pushes to `main` and on pull requests, and fails if a third-party submodule was modified. Run the same command locally before opening a PR.
 - The native build is CMake only. Do not reintroduce ndk-build (`Android.mk`) files.
 - Keep components small and reusable, in line with the existing composables.
 - See `CLAUDE.md` for an overview of the architecture and build setup.
@@ -220,7 +220,7 @@ Repository secrets used by the workflow (steps are skipped, not failed, when the
 | `MAVEN_CENTRAL_USERNAME`, `MAVEN_CENTRAL_PASSWORD` | Central Portal user token |
 | `SIGNING_KEY`, `SIGNING_KEY_PASSWORD` | ASCII-armored GPG key used to sign the Maven artifacts |
 
-Publishing locally: `./gradlew :libpolaroid:publishToMavenLocal` to inspect the artifacts, or `./gradlew :libpolaroid:publishAndReleaseToMavenCentral` with the secrets above provided as `ORG_GRADLE_PROJECT_mavenCentralUsername`, `ORG_GRADLE_PROJECT_mavenCentralPassword`, `ORG_GRADLE_PROJECT_signingInMemoryKey` and `ORG_GRADLE_PROJECT_signingInMemoryKeyPassword`. The `io.github.mikimn` namespace must be verified on the [Central Portal](https://central.sonatype.com) first.
+Publishing locally: `./gradlew :droiduvc:publishToMavenLocal` to inspect the artifacts, or `./gradlew :droiduvc:publishAndReleaseToMavenCentral` with the secrets above provided as `ORG_GRADLE_PROJECT_mavenCentralUsername`, `ORG_GRADLE_PROJECT_mavenCentralPassword`, `ORG_GRADLE_PROJECT_signingInMemoryKey` and `ORG_GRADLE_PROJECT_signingInMemoryKeyPassword`. The `io.github.mikimn` namespace must be verified on the [Central Portal](https://central.sonatype.com) first.
 
 ## How AI is Used in the Project
 
@@ -230,7 +230,7 @@ AI-generated changes are reviewed by the maintainer and verified by building and
 
 ## License
 
-Polaroid is licensed under the [Apache License 2.0](https://github.com/mikimn/polaroid/blob/main/LICENSE).
+droiduvc is licensed under the [Apache License 2.0](https://github.com/mikimn/polaroid/blob/main/LICENSE).
 
 It bundles third-party libraries as git submodules that are under their own licenses:
 
@@ -240,4 +240,4 @@ It bundles third-party libraries as git submodules that are under their own lice
 | [libjpeg-turbo](https://github.com/libjpeg-turbo/libjpeg-turbo) | IJG, BSD-3-Clause and zlib |
 | [libusb](https://github.com/libusb/libusb) | LGPL-2.1-or-later |
 
-Note that libusb is LGPL and is statically linked into `libpolaroid.so`; if you distribute an app built on Polaroid, review the LGPL's requirements for your distribution.
+Note that libusb is LGPL and is statically linked into `libdroiduvc.so`; if you distribute an app built on droiduvc, review the LGPL's requirements for your distribution.

@@ -1,0 +1,26 @@
+# Standalone host build of the native unit tests (no NDK needed):
+#   cmake -S . -B build && cmake --build build && ctest --test-dir build --output-on-failure
+cmake_minimum_required(VERSION 3.22.1)
+project(droiduvc_native_tests LANGUAGES CXX)
+
+set(CMAKE_CXX_STANDARD 17)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
+
+include(FetchContent)
+if(POLICY CMP0135)
+    cmake_policy(SET CMP0135 NEW)  # use extraction time for downloaded archives
+endif()
+FetchContent_Declare(googletest
+        URL https://github.com/google/googletest/archive/refs/tags/v1.15.2.tar.gz
+        URL_HASH SHA256=7b42b4d6ed48810c5362c265a17faebe90dc2373c885e5216439d37927f02926)
+set(INSTALL_GTEST OFF CACHE BOOL "" FORCE)
+FetchContent_MakeAvailable(googletest)
+
+add_subdirectory(../core core)
+
+enable_testing()
+add_executable(droiduvc_core_tests blit_test.cpp stream_mode_test.cpp)
+target_link_libraries(droiduvc_core_tests PRIVATE droiduvc_core GTest::gtest_main)
+
+include(GoogleTest)
+gtest_discover_tests(droiduvc_core_tests)
