@@ -6,7 +6,7 @@ plugins {
 
 android {
     namespace 'com.mikimn.libpolaroid.compose'
-    compileSdk 35
+    compileSdk 36
 
     defaultConfig {
         minSdk 24
@@ -15,7 +15,7 @@ android {
 
     // The instrumented-test APK needs a recent targetSdk or Play Protect blocks its installation.
     testOptions {
-        targetSdk 34
+        targetSdk 36
     }
 
     buildFeatures {

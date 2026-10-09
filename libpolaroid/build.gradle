@@ -1,5 +1,4 @@
 import javax.inject.Inject
-import org.gradle.process.ExecOperations
 
 plugins {
     alias(libs.plugins.android.library)
@@ -9,7 +8,7 @@ plugins {
 
 android {
     namespace 'com.mikimn.libpolaroid'
-    compileSdk 35
+    compileSdk 36
     ndkVersion '30.0.16248370'
 
     externalNativeBuild {
@@ -21,7 +20,7 @@ android {
 
     defaultConfig {
         minSdk 24
-        targetSdk 34
+        targetSdk 36
 
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
         consumerProguardFiles "consumer-rules.pro"

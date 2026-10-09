@@ -5,12 +5,12 @@ plugins {
 
 android {
     namespace = "com.mikimn.polaroid"
-    compileSdk = 35
+    compileSdk = 36
 
     defaultConfig {
         applicationId = "com.mikimn.polaroid"
         minSdk = 24
-        targetSdk = 33
+        targetSdk = 36
         // Single source of truth for the version: VERSION_NAME in gradle.properties (MAJOR.MINOR.PATCH[-suffix]).
         val version = providers.gradleProperty("VERSION_NAME").get()
         require(Regex("""\d+\.\d+\.\d+(-[0-9A-Za-z.-]+)?""").matches(version)) {
