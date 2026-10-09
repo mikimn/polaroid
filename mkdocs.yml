@@ -1,4 +1,4 @@
-site_name: Polaroid
+site_name: Droid UVC
 site_description: Stream UVC cameras on Android with libuvc and Jetpack Compose
 site_url: https://mikimn.github.io/polaroid/
 repo_url: https://github.com/mikimn/polaroid

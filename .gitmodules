@@ -1,9 +1,9 @@
 [submodule "libjpeg-turbo"]
-	path = libpolaroid/src/main/cpp/third_party/libjpeg-turbo
+	path = droiduvc/src/main/cpp/third_party/libjpeg-turbo
 	url = https://github.com/libjpeg-turbo/libjpeg-turbo
 [submodule "libusb"]
-	path = libpolaroid/src/main/cpp/third_party/libusb
+	path = droiduvc/src/main/cpp/third_party/libusb
 	url = https://github.com/libusb/libusb.git
 [submodule "libuvc"]
-	path = libpolaroid/src/main/cpp/third_party/libuvc
+	path = droiduvc/src/main/cpp/third_party/libuvc
 	url = https://github.com/libuvc/libuvc.git

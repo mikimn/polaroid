@@ -4,11 +4,11 @@ plugins {
 }
 
 android {
-    namespace = "com.mikimn.polaroid"
+    namespace = "com.mikimn.droiduvc.app"
     compileSdk = 36
 
     defaultConfig {
-        applicationId = "com.mikimn.polaroid"
+        applicationId = "com.mikimn.droiduvc.app"
         minSdk = 24
         targetSdk = 36
         // Single source of truth for the version: VERSION_NAME in gradle.properties (MAJOR.MINOR.PATCH[-suffix]).
@@ -65,7 +65,7 @@ android {
 
 dependencies {
     // The Compose helpers (and, through them, the camera API) come from the SDK modules like in any other app.
-    implementation(project(":libpolaroid-compose"))
+    implementation(project(":droiduvc-compose"))
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.lifecycle.runtime.ktx)
     implementation(libs.androidx.activity.compose)
