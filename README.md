@@ -34,7 +34,7 @@ And then in `app/build.gradle.kts`:
 ```kotlin
 // app/build.gradle.kts
 dependencies {
-   implementation("io.github.mikimn:droiduvc:0.2.0")
+   implementation("io.github.mikimn:droiduvc:0.2.1")
 }
 ```
 
@@ -76,7 +76,7 @@ Compose apps can use the `droiduvc-compose` module, which brings the camera plum
 
 ```kotlin
 dependencies {
-   implementation("io.github.mikimn:droiduvc-compose:0.2.0")
+   implementation("io.github.mikimn:droiduvc-compose:0.2.1")
 } // or project(":droiduvc-compose"), if including a local copy
 ```
 
