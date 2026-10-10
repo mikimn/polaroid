@@ -1,8 +1,8 @@
 site_name: Droid UVC
 site_description: Stream UVC cameras on Android with libuvc and Jetpack Compose
-site_url: https://mikimn.github.io/polaroid/
-repo_url: https://github.com/mikimn/polaroid
-repo_name: mikimn/polaroid
+site_url: https://mikimn.github.io/droiduvc/
+repo_url: https://github.com/mikimn/droiduvc
+repo_name: mikimn/droiduvc
 edit_uri: ""
 
 # README.md and CLAUDE.md stay the single source of truth; the pages in docs/
