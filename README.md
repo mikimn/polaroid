@@ -1,6 +1,6 @@
 # droiduvc
 
-[![CI](https://github.com/mikimn/polaroid/actions/workflows/ci.yml/badge.svg)](https://github.com/mikimn/polaroid/actions/workflows/ci.yml)
+[![CI](https://github.com/mikimn/droiduvc/actions/workflows/ci.yml/badge.svg)](https://github.com/mikimn/droiduvc/actions/workflows/ci.yml)
 
 This library enables working with UVC cameras on Android. It is based on `libuvc` and is heavily inspired by the [`UVCCamera`](https://github.com/saki4510t/UVCCamera) project.
 
@@ -46,7 +46,7 @@ include the module directly:
 1. Add this repository as a git submodule (or copy it) and include the module in `settings.gradle`:
 
    ```bash
-   git submodule add https://github.com/mikimn/polaroid.git droiduvc
+   git submodule add https://github.com/mikimn/droiduvc.git droiduvc
    git submodule update --init --recursive
    ```
 
@@ -168,7 +168,7 @@ Notes:
 The `:app` module is a Jetpack Compose app that shows a live preview of the first connected UVC camera. It depends on `:droiduvc-compose` exactly like a third-party app would (it contains only screen-level UI, no USB or camera plumbing), so `app/src/main/java/com/mikimn/droiduvc/app/ui/camera/CameraScreen.kt` doubles as an integration reference matching the example in [Jetpack Compose](#jetpack-compose). Besides the preview and the mode picker it has a **Controls** panel built from what the connected camera reports: sliders for zoom, exposure, focus, brightness, ... using the device's own ranges, switches for the auto modes (the matching manual slider is disabled while auto is on), a reset per control and "Reset all", and pinch-to-zoom on the preview when the camera has a zoom control. **Camera info** opens a plain-text report (device identity, UVC version, every stream mode, and every control with min/max/step/default/current, supported or not) that you can copy or share and paste into a bug report; its layout is fixed so two devices' reports diff cleanly, the serial number is masked to its last four characters so it is safe to paste publicly, and it works without streaming.
 
 ```bash
-git clone --recurse-submodules https://github.com/mikimn/polaroid.git
+git clone --recurse-submodules https://github.com/mikimn/droiduvc.git
 cd polaroid
 ```
 
@@ -230,7 +230,7 @@ AI-generated changes are reviewed by the maintainer and verified by building and
 
 ## License
 
-droiduvc is licensed under the [Apache License 2.0](https://github.com/mikimn/polaroid/blob/main/LICENSE).
+droiduvc is licensed under the [Apache License 2.0](https://github.com/mikimn/droiduvc/blob/main/LICENSE).
 
 It bundles third-party libraries as git submodules that are under their own licenses:
 
