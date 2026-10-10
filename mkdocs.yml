@@ -9,7 +9,6 @@ edit_uri: ""
 # only include them (docs/assets links to the repo's assets/).
 nav:
   - Home: index.md
-  - Architecture: architecture.md
 
 theme:
   name: material
